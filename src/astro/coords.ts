@@ -145,16 +145,24 @@ export function eclipticVectorToEquatorial(v: [number, number, number], obliquit
 }
 
 /**
- * Precess ecliptic coordinates from the J2000 frame to the mean equinox of
- * date (Meeus ch. 21). Positions from Keplerian element sets are referred to
- * J2000, while apparent sky coordinates are referred to the equinox of date.
+ * Precess ecliptic coordinates between two epochs (Meeus ch. 21).
+ * Positions from Keplerian element sets are referred to J2000, while apparent
+ * sky coordinates are referred to the mean equinox of date.
  */
-export function precessFromJ2000(lon: number, lat: number, jdtt: number): { lon: number; lat: number } {
-  const t = centuries(jdtt);
+export function precessEcliptic(
+  lon: number,
+  lat: number,
+  jdFrom: number,
+  jdTo: number,
+): { lon: number; lat: number } {
+  const T = centuries(jdFrom);
+  const t = (jdTo - jdFrom) / 36525;
   const t2 = t * t;
-  const eta = (47.0029 * t - 0.03302 * t2 + 0.00006 * t2 * t) / 3600;
-  const pi = 174.876384 - (869.8089 * t - 0.03536 * t2) / 3600;
-  const p = (5029.0966 * t + 1.11113 * t2 - 0.000006 * t2 * t) / 3600;
+  const eta = ((47.0029 - 0.06603 * T + 0.000598 * T * T) * t + (-0.03302 + 0.000598 * T) * t2 + 0.00006 * t2 * t) / 3600;
+  const pi =
+    174.876384 + (3289.4789 * T + 0.60622 * T * T) / 3600 -
+    ((869.8089 + 0.50491 * T) * t - 0.03536 * t2) / 3600;
+  const p = ((5029.0966 + 2.22226 * T - 0.000042 * T * T) * t + (1.11113 - 0.000042 * T) * t2 - 0.000006 * t2 * t) / 3600;
 
   const A = cos(eta) * cos(lat) * sin(pi - lon) - sin(eta) * sin(lat);
   const B = cos(lat) * cos(pi - lon);
@@ -163,4 +171,14 @@ export function precessFromJ2000(lon: number, lat: number, jdtt: number): { lon:
     lon: norm360(p + pi - Math.atan2(A, B) * RAD),
     lat: Math.asin(clamp(C, -1, 1)) * RAD,
   };
+}
+
+/** Precess from the J2000 frame to the mean equinox of date. */
+export function precessFromJ2000(lon: number, lat: number, jdtt: number): { lon: number; lat: number } {
+  return precessEcliptic(lon, lat, 2451545.0, jdtt);
+}
+
+/** Precess from the mean equinox of date back into the J2000 frame. */
+export function precessToJ2000(lon: number, lat: number, jdtt: number): { lon: number; lat: number } {
+  return precessEcliptic(lon, lat, jdtt, 2451545.0);
 }
