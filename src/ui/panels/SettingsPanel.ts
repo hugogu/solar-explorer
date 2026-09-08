@@ -47,6 +47,7 @@ export class SettingsPanel {
       { label: '天体名称', get: () => state.settings.showLabels, set: (v) => { state.settings.showLabels = v; } },
       { label: '小行星带与柯伊伯带', get: () => state.settings.showBelts, set: (v) => { state.settings.showBelts = v; } },
       { label: '奥尔特云内缘', hint: '约 2000 AU', get: () => state.settings.showOort, set: (v) => { state.settings.showOort = v; } },
+      { label: '日食阴影轨迹', hint: '食带与本影', get: () => state.settings.showEclipseTrack, set: (v) => { state.settings.showEclipseTrack = v; } },
       { label: '恒星', get: () => state.settings.showStars, set: (v) => { state.settings.showStars = v; } },
       { label: '银河', get: () => state.settings.showMilkyWay, set: (v) => { state.settings.showMilkyWay = v; } },
     ];

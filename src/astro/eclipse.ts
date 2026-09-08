@@ -14,7 +14,8 @@ import { moonPosition } from './moon';
 import { sunPosition } from './sun';
 import { J2000, jdToTT, lmst, ttToJD } from './time';
 
-const EARTH_RADIUS_AU = 6378.14 / 149597870.7;
+export const EARTH_RADIUS_AU = 6378.14 / 149597870.7;
+export const EARTH_RADIUS_KM = 6378.14;
 
 export type SolarEclipseType = 'total' | 'annular' | 'hybrid' | 'partial';
 export type LunarEclipseType = 'total' | 'partial' | 'penumbral';
@@ -135,7 +136,7 @@ function lunation(k: number): LunationArgs {
  * closest point of the surface is returned instead, which is what a partial
  * eclipse's "greatest" point means.
  */
-function shadowAxisPoint(jd: number): { latitude: number; longitude: number; central: boolean } {
+export function shadowAxisPoint(jd: number): { latitude: number; longitude: number; central: boolean } {
   const jdtt = jdToTT(jd);
   const eps = trueObliquity(jdtt);
   const s = sunPosition(jdtt);
@@ -383,6 +384,26 @@ function lensArea(r1: number, r2: number, d: number): number {
   return (
     r1 * r1 * (a1 - Math.sin(2 * a1) / 2) + r2 * r2 * (a2 - Math.sin(2 * a2) / 2)
   );
+}
+
+/**
+ * Fraction of the Sun's disc hidden by a body in front of it.
+ *
+ * One expression covers the whole eclipse: partial where the discs merely
+ * overlap, 1 inside the umbra, and the ratio of the areas inside the antumbra
+ * of an annular eclipse. The fragment shader in the renderer mirrors this.
+ *
+ * @param rSun apparent radius of the Sun, radians
+ * @param rCaster apparent radius of the occulting body, radians
+ * @param separation angle between the two centres, radians
+ */
+export function discCoverage(rSun: number, rCaster: number, separation: number): number {
+  if (rSun <= 0) return 0;
+  if (separation >= rSun + rCaster) return 0;
+  if (separation <= Math.abs(rSun - rCaster)) {
+    return clamp((rCaster * rCaster) / (rSun * rSun), 0, 1);
+  }
+  return clamp(lensArea(rSun, rCaster, separation) / (Math.PI * rSun * rSun), 0, 1);
 }
 
 /**

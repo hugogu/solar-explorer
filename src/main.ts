@@ -7,6 +7,7 @@ import { Ui } from './ui/Ui';
 import { loadPhotoMaps } from './render/textures/photoMaps';
 import { PLANET_IDS } from './astro/planets';
 import { nextFrame } from './app/schedule';
+import { EclipseWatcher } from './app/EclipseWatcher';
 import { surfaceFrame } from './render/orientation';
 import type { Eclipse } from './astro/eclipse';
 import * as THREE from 'three';
@@ -37,6 +38,7 @@ async function boot(): Promise<void> {
   if (Math.abs(deviceOffset - 8) > 0.1) state.observer = { ...state.observer, offsetHours: deviceOffset };
 
   const simulation = new Simulation(state.time.jd);
+  const eclipseWatcher = new EclipseWatcher();
 
   await progress(0.3, '构建场景…');
   const scene = new Scene(
@@ -259,6 +261,10 @@ async function boot(): Promise<void> {
     last = now;
     state.time.advance(dt);
     simulation.update(state.time.jd);
+    const eclipseOverlay = state.settings.showEclipseTrack
+      ? eclipseWatcher.update(state.time.jd)
+      : null;
+    scene.setEclipseOverlay(eclipseOverlay);
     scene.update(simulation, state.settings, dt);
     scene.render();
 
@@ -266,6 +272,7 @@ async function boot(): Promise<void> {
     if (uiAccumulator > 0.1) {
       uiAccumulator = 0;
       ui.surfaceHud.heading = scene.rig.surfaceAzimuth;
+      ui.eclipseHud.update(eclipseOverlay);
       ui.update();
     }
     requestAnimationFrame(frame);

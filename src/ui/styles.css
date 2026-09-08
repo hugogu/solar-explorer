@@ -677,3 +677,39 @@ input[type='range']::-moz-range-thumb {
 @media (hover: none) {
   .btn:hover { background: rgba(255, 255, 255, 0.04); }
 }
+
+/* ---------- eclipse readout ---------- */
+
+.eclipse-hud {
+  position: absolute;
+  left: 50%;
+  top: 76px;
+  transform: translateX(-50%);
+  width: min(340px, calc(100vw - 32px));
+  background: var(--panel);
+  border: 1px solid rgba(255, 196, 107, 0.3);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: var(--shadow);
+  z-index: 5;
+}
+.eclipse-hud-title { font-size: 12px; color: var(--accent-warm); margin-bottom: 8px; }
+.eclipse-hud-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 196, 107, 0.18);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.eclipse-hud-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #ffb347, #fff0c8);
+  transition: width 0.2s linear;
+}
+.eclipse-hud-rows .data-row { padding: 4px 0; }
+.eclipse-hud-rows .data-row:last-child { border-bottom: 0; }
+
+.ui-root.is-compact .eclipse-hud { top: auto; bottom: 128px; }

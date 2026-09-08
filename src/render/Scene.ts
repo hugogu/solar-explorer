@@ -15,10 +15,12 @@ import {
 } from './Orbits';
 import { Sky } from './Sky';
 import { LocationMarker } from './LocationMarker';
+import { EclipseTrack } from './EclipseTrack';
+import type { EclipseOverlay } from '../app/EclipseWatcher';
 import { AtmosphereSky, SKY_PROFILES } from './AtmosphereSky';
 import { AU_UNITS, ScaleSettings, scaleHeliocentric } from './frame';
 import { AU_KM } from '../astro/planets';
-import { surfaceFrame } from './orientation';
+import { iauFrame, surfaceFrame } from './orientation';
 import { lunarPositionJ2000 } from '../astro/satellites';
 import { jdToTT } from '../astro/time';
 import { scheduleFrame } from '../app/schedule';
@@ -40,6 +42,8 @@ export interface ViewSettings {
   showLabels: boolean;
   showBelts: boolean;
   showOort: boolean;
+  /** draw the umbra's track across the ground during a solar eclipse */
+  showEclipseTrack: boolean;
   showStars: boolean;
   showMilkyWay: boolean;
   /** body the camera is locked to, or null for free flight around the Sun */
@@ -73,6 +77,8 @@ export class Scene {
   private readonly belts = new Belts();
   private readonly atmosphereSky = new AtmosphereSky();
   readonly locationMarker = new LocationMarker();
+  private readonly eclipseTrack = new EclipseTrack();
+  private eclipseOverlay: EclipseOverlay | null = null;
   /**
    * While set, the camera keeps the marked place facing the viewer as the body
    * turns. Rotating by hand releases it, so the lock never fights the user.
@@ -114,6 +120,7 @@ export class Scene {
     this.scene.add(this.belts.group);
     this.scene.add(this.atmosphereSky.mesh);
     this.scene.add(this.locationMarker.group);
+    this.scene.add(this.eclipseTrack.group);
 
     // The Sun lights everything; falloff is compressed in the material tint
     // rather than the light itself, so distant planets stay legible.
@@ -213,6 +220,7 @@ export class Scene {
 
     this.updateEclipseShadows(simulation);
     this.updateLocationMarker(simulation, settings);
+    this.updateEclipseTrack(simulation, settings);
     this.belts.update(jdToTT(simulation.jd) - J2000, scale, this.beltPointScale());
     this.belts.setAllVisible(settings.showBelts);
     this.belts.setVisible('oort', settings.showOort);
@@ -295,6 +303,33 @@ export class Scene {
     const cameraPosition = this.rig.camera.position;
     const distance = cameraPosition.distanceTo(surfacePosition);
     marker.update(surfacePosition, frame.up, cameraPosition, this.minimumVisibleSize(distance) * 3.2);
+  }
+
+  /** Hand the renderer the eclipse currently under way, or null for none. */
+  setEclipseOverlay(overlay: EclipseOverlay | null): void {
+    this.eclipseOverlay = overlay;
+  }
+
+  /** Lay the shadow track on the Earth and move the umbra marker along it. */
+  private updateEclipseTrack(simulation: Simulation, settings: ViewSettings): void {
+    const overlay = settings.showEclipseTrack && !settings.surface ? this.eclipseOverlay : null;
+    const state = simulation.get('earth');
+    const view = this.views.get('earth');
+    const position = this.scaledPositions.get('earth');
+    if (!overlay || !state || !view || !position || settings.visibleKinds.planet === false) {
+      this.eclipseTrack.setOverlay(null, 0);
+      return;
+    }
+    const radius = view.baseRadius * settings.scale.bodyScale;
+    this.eclipseTrack.setOverlay(overlay, radius);
+    const distance = this.rig.camera.position.distanceTo(position);
+    this.eclipseTrack.update(
+      overlay,
+      position,
+      iauFrame(state.raDec0[0], state.raDec0[1], state.meridian),
+      radius,
+      this.minimumVisibleSize(distance),
+    );
   }
 
   /** Bodies close enough to this one to plausibly eclipse its sunlight. */

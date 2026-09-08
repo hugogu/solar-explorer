@@ -15,6 +15,7 @@ import { InfoPanel } from './panels/InfoPanel';
 import { SettingsPanel } from './panels/SettingsPanel';
 import { TimePanel } from './panels/TimePanel';
 import { SurfaceHud } from './panels/SurfaceHud';
+import { EclipseHud } from './panels/EclipseHud';
 
 type TabId = 'bodies' | 'info' | 'events' | 'settings';
 
@@ -32,6 +33,7 @@ export class Ui {
   readonly eventsPanel: EventsPanel;
   readonly settingsPanel: SettingsPanel;
   readonly surfaceHud: SurfaceHud;
+  readonly eclipseHud: EclipseHud;
 
   private readonly root: HTMLElement;
   private readonly leftDock: HTMLElement;
@@ -63,6 +65,7 @@ export class Ui {
     });
     this.settingsPanel = new SettingsPanel(state, callbacks.onExitSurface);
     this.surfaceHud = new SurfaceHud(state, getSimulation, callbacks.onExitSurface);
+    this.eclipseHud = new EclipseHud(() => state.observer.offsetHours);
 
     this.leftDock = el('div', { class: 'dock dock-left' });
     this.rightDock = el('div', { class: 'dock dock-right' });
@@ -95,6 +98,7 @@ export class Ui {
       this.rightDock,
       this.sheet,
       this.surfaceHud.element,
+      this.eclipseHud.element,
       this.helpOverlay(),
     );
     container.appendChild(this.root);
