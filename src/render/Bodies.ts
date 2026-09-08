@@ -24,6 +24,8 @@ export interface PhotoMaps {
   specularMap?: THREE.Texture;
   cloudMap?: THREE.Texture;
   nightMap?: THREE.Texture;
+  /** radial strip for a ring system, with alpha */
+  ringMap?: THREE.Texture;
 }
 
 export class BodyView {
@@ -106,7 +108,7 @@ export class BodyView {
     this.addMarker();
     if (info.atmosphereColor) this.addAtmosphere(info.atmosphereColor);
     if (photo?.cloudMap) this.addClouds(photo.cloudMap);
-    if (info.rings) this.addRings();
+    if (info.rings) this.addRings(photo?.ringMap);
     if (info.emissive) this.addCorona();
     if (info.kind === 'comet') this.addComa();
   }
@@ -343,7 +345,7 @@ export class BodyView {
     this.spin.add(this.clouds);
   }
 
-  private addRings(): void {
+  private addRings(photoRing?: THREE.Texture): void {
     const ring = this.info.rings as NonNullable<BodyInfo['rings']>;
     const geometry = new THREE.RingGeometry(ring.inner, ring.outer, 192, 4);
     // Remap UVs so the texture runs radially.
@@ -356,7 +358,7 @@ export class BodyView {
       uv.setXY(i, t, (i % 2) * 0.5 + 0.25);
     }
     const material = new THREE.MeshBasicMaterial({
-      map: generateRingTexture(this.info),
+      map: photoRing ?? generateRingTexture(this.info),
       side: THREE.DoubleSide,
       transparent: true,
       depthWrite: false,

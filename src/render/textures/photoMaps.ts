@@ -15,11 +15,13 @@ interface Manifest {
     specularMap?: string;
     cloudMap?: string;
     nightMap?: string;
+    ringMap?: string;
   };
 }
 
 const SLOT_COLOR_SPACE: Record<string, boolean> = {
-  map: true, cloudMap: true, nightMap: true, normalMap: false, specularMap: false,
+  map: true, cloudMap: true, nightMap: true, ringMap: true,
+  normalMap: false, specularMap: false,
 };
 
 /**
