@@ -260,3 +260,31 @@ describe('eclipse prediction', () => {
     expect(d.moonRadius).toBeGreaterThan(d.sunRadius);
   });
 });
+
+describe('rise and set at awkward latitudes', () => {
+  // A coarser scan is cheaper but must not step over a crossing, so check the
+  // places where the Sun skims the horizon most slowly.
+  const places: Array<[string, number, number, number, number]> = [
+    ['just inside the Arctic circle', 66.0, 25.0, 2025, 6],
+    ['just outside the Arctic circle', 67.5, 25.0, 2025, 7],
+    ['high Arctic in spring', 78.0, 15.0, 2025, 3],
+    ['Antarctic coast', -66.5, 110.0, 2025, 12],
+  ];
+  for (const [name, latitude, longitude, year, month] of places) {
+    it(`finds consistent crossings ${name}`, () => {
+      for (let day = 1; day <= 28; day += 3) {
+        const observer = { latitude, longitude, elevation: 0 };
+        const events = dayEvents(utcToJD(year, month, day), observer);
+        if (events.sunrise !== undefined) {
+          expect(sunAltitude(events.sunrise, observer).altitude).toBeCloseTo(-0.8333, 2);
+        }
+        if (events.sunset !== undefined) {
+          expect(sunAltitude(events.sunset, observer).altitude).toBeCloseTo(-0.8333, 2);
+        }
+        // A day cannot be both.
+        expect(events.polarDay && events.polarNight).toBe(false);
+        if (events.polarDay) expect(events.dayLength).toBe(24);
+      }
+    });
+  }
+});

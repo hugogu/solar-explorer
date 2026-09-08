@@ -136,28 +136,92 @@ export interface DayEvents {
   maxSunAltitude: number;
 }
 
+/** One sampled instant of the Sun's altitude. */
+interface SunSample {
+  jd: number;
+  altitude: number;
+}
+
+/**
+ * Crossings of one horizon, refined from a shared set of samples.
+ *
+ * The Sun's position is the expensive part and does not depend on which
+ * horizon is being tested, so all four twilight levels reuse the same scan
+ * and only pay for the handful of bisection steps around each crossing.
+ */
+function crossingsOf(
+  samples: SunSample[],
+  horizon: number,
+  altitudeAt: (jd: number) => number,
+): { rise?: number; set?: number } {
+  const result: { rise?: number; set?: number } = {};
+  const f = (jd: number) => altitudeAt(jd) - horizon;
+  for (let i = 1; i < samples.length; i++) {
+    const previous = samples[i - 1].altitude - horizon;
+    const current = samples[i].altitude - horizon;
+    if (previous <= 0 && current > 0 && result.rise === undefined) {
+      result.rise = bisect(f, samples[i - 1].jd, samples[i].jd, 0.02 / 86400);
+    } else if (previous > 0 && current <= 0 && result.set === undefined) {
+      result.set = bisect((x) => -f(x), samples[i - 1].jd, samples[i].jd, 0.02 / 86400);
+    }
+  }
+  return result;
+}
+
 /**
  * All Sun/Moon events for one local day.
  * @param jdLocalMidnight JD (UT) of the start of the local day
  */
 export function dayEvents(jdLocalMidnight: number, observer: Observer): DayEvents {
-  const sun = findRiseSet(jdLocalMidnight, (jd) => sunAltitude(jd, observer), 1, 2);
-  const civil = findRiseSet(jdLocalMidnight, (jd) => sunAltitude(jd, observer, -6), 1, 2);
-  const nautical = findRiseSet(jdLocalMidnight, (jd) => sunAltitude(jd, observer, -12), 1, 2);
-  const astro = findRiseSet(jdLocalMidnight, (jd) => sunAltitude(jd, observer, -18), 1, 2);
+  const altitudeAt = (jd: number) => sunAltitude(jd, observer).altitude;
+
+  // Single pass over the day; every horizon is read off these samples. The
+  // step only has to be fine enough not to step over a crossing - the times
+  // themselves come from bisection afterwards.
+  const stepMinutes = 4;
+  const count = Math.round(1440 / stepMinutes);
+  const samples: SunSample[] = [];
+  let maxAltitude = -Infinity;
+  let minAltitude = Infinity;
+  let peakJd = jdLocalMidnight;
+  for (let i = 0; i <= count; i++) {
+    const jd = jdLocalMidnight + (i * stepMinutes) / 1440;
+    const altitude = altitudeAt(jd);
+    samples.push({ jd, altitude });
+    if (altitude > maxAltitude) {
+      maxAltitude = altitude;
+      peakJd = jd;
+    }
+    if (altitude < minAltitude) minAltitude = altitude;
+  }
+
+  const daylight = crossingsOf(samples, -0.8333, altitudeAt);
+  const civil = crossingsOf(samples, -6, altitudeAt);
+  const nautical = crossingsOf(samples, -12, altitudeAt);
+  const astro = crossingsOf(samples, -18, altitudeAt);
   const moon = findRiseSet(jdLocalMidnight, (jd) => moonAltitude(jd, observer), 1, 4);
 
+  // Refine the transit as the vertex of a parabola through the peak sample.
+  const h = stepMinutes / 1440;
+  const a = altitudeAt(peakJd - h);
+  const b = maxAltitude;
+  const c = altitudeAt(peakJd + h);
+  const denominator = a - 2 * b + c;
+  const solarNoon = denominator !== 0 ? peakJd - (h * (c - a)) / (2 * denominator) : peakJd;
+
+  const polarDay = minAltitude > -0.8333;
+  const polarNight = maxAltitude <= -0.8333;
   const dayLength =
-    sun.rise !== undefined && sun.set !== undefined
-      ? ((sun.set > sun.rise ? sun.set - sun.rise : sun.set + 1 - sun.rise) * 24)
-      : sun.alwaysUp
+    daylight.rise !== undefined && daylight.set !== undefined
+      ? (daylight.set > daylight.rise ? daylight.set - daylight.rise : daylight.set + 1 - daylight.rise) * 24
+      : polarDay
         ? 24
         : 0;
 
   return {
-    sunrise: sun.rise,
-    sunset: sun.set,
-    solarNoon: sun.transit,
+    sunrise: daylight.rise,
+    sunset: daylight.set,
+    solarNoon,
     dayLength,
     civilDawn: civil.rise,
     civilDusk: civil.set,
@@ -167,8 +231,8 @@ export function dayEvents(jdLocalMidnight: number, observer: Observer): DayEvent
     astronomicalDusk: astro.set,
     moonrise: moon.rise,
     moonset: moon.set,
-    polarDay: sun.alwaysUp,
-    polarNight: sun.alwaysDown,
-    maxSunAltitude: sun.maxAltitude,
+    polarDay,
+    polarNight,
+    maxSunAltitude: maxAltitude,
   };
 }

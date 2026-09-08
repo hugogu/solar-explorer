@@ -12,6 +12,9 @@ import { surfaceFrame } from './render/orientation';
 import type { Eclipse } from './astro/eclipse';
 import * as THREE from 'three';
 
+/** Largest simulation step taken in one frame, in real seconds. */
+const MAX_FRAME_SECONDS = 1 / 30;
+
 const PLANET_KEYS = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
 
 async function boot(): Promise<void> {
@@ -257,7 +260,10 @@ async function boot(): Promise<void> {
   let last = performance.now();
   let uiAccumulator = 0;
   const frame = (now: number) => {
-    const dt = Math.min(0.1, (now - last) / 1000);
+    // Cap the step at two frames' worth. A hitch would otherwise be handed
+    // straight to the clock, and at a day a second that turns a dropped frame
+    // into the Earth visibly skipping part of a rotation.
+    const dt = Math.min(MAX_FRAME_SECONDS, (now - last) / 1000);
     last = now;
     state.time.advance(dt);
     simulation.update(state.time.jd);

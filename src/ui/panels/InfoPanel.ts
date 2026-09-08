@@ -207,7 +207,7 @@ export class InfoPanel {
   /** Refreshed every frame: the numbers that change as time runs. */
   updateLive(): void {
     const id = this.currentId;
-    if (!id) return;
+    if (!id || !this.element.isConnected) return;
     const grid = this.liveEl.querySelector('#live-grid') as HTMLElement | null;
     if (!grid) return;
     const simulation = this.getSimulation();

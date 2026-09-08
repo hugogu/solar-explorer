@@ -55,6 +55,8 @@ export class EventsPanel {
   private readonly bodyEl: HTMLElement;
   private cacheKey = '';
   private lastComputeAt = 0;
+  private eclipseSection: HTMLElement | null = null;
+  private eclipseKey = '';
 
   constructor(
     private readonly state: AppState,
@@ -76,6 +78,13 @@ export class EventsPanel {
 
   /** @param force recompute even when nothing obvious has changed */
   update(force = false): void {
+    // A panel on an inactive tab is not in the document, and rebuilding the
+    // almanac for something nobody is looking at was costing a whole frame
+    // every simulated day - which at a day a second is once per rotation.
+    if (!this.element.isConnected) {
+      this.cacheKey = '';
+      return;
+    }
     const now = performance.now();
     if (!force && now - this.lastComputeAt < 250) return;
 
@@ -304,15 +313,31 @@ export class EventsPanel {
 
   // ---------------------------------------------------------------- eclipses
 
+  /**
+   * The eclipse list, cached.
+   *
+   * Searching the lunations and then working out local circumstances for six
+   * eclipses is far too expensive to redo whenever the date rolls over - at a
+   * day a second that is once every second. The list only changes materially
+   * over weeks, so it is rebuilt on a much coarser clock and the existing
+   * nodes are simply re-attached in between.
+   */
   private renderEclipses(): void {
-    this.bodyEl.appendChild(
-      el('div', { class: 'panel-title' }, icon(ICONS.eclipse, 14), '未来的日食与月食'),
-    );
-    for (const eclipse of findEclipses(this.state.time.jd, { limit: 6 })) {
-      this.bodyEl.appendChild(this.eclipseCard(eclipse));
+    const { time, observer } = this.state;
+    const key = [
+      Math.floor(time.jd / 15), observer.latitude.toFixed(3), observer.longitude.toFixed(3),
+      observer.offsetHours,
+    ].join('|');
+    if (!this.eclipseSection || key !== this.eclipseKey) {
+      this.eclipseKey = key;
+      this.eclipseSection = el('div', {},
+        el('div', { class: 'panel-title' }, icon(ICONS.eclipse, 14), '未来的日食与月食'),
+        ...findEclipses(time.jd, { limit: 6 }).map((eclipse) => this.eclipseCard(eclipse)),
+        el('div', { class: 'events-foot' },
+          `本地可见性按 ${observer.name}（${observer.latitude.toFixed(2)}°, ${observer.longitude.toFixed(2)}°）计算`),
+      );
     }
-    this.bodyEl.appendChild(el('div', { class: 'events-foot' },
-      `本地可见性按 ${this.state.observer.name}（${this.state.observer.latitude.toFixed(2)}°, ${this.state.observer.longitude.toFixed(2)}°）计算`));
+    this.bodyEl.appendChild(this.eclipseSection);
   }
 
   private eclipseCard(eclipse: Eclipse): HTMLElement {
