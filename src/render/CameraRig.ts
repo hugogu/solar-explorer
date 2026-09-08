@@ -8,6 +8,13 @@ export type CameraMode = 'orbit' | 'surface';
 
 const clamp = (x: number, lo: number, hi: number) => (x < lo ? lo : x > hi ? hi : x);
 
+/**
+ * Near plane distances. Standing on a surface needs a near plane far smaller
+ * than orbital viewing does; the logarithmic depth buffer copes with the range.
+ */
+const ORBIT_NEAR = 0.02;
+const SURFACE_NEAR = 1e-6;
+
 export class CameraRig {
   readonly camera: THREE.PerspectiveCamera;
   mode: CameraMode = 'orbit';
@@ -41,7 +48,7 @@ export class CameraRig {
   damping = 0.12;
 
   constructor(aspect: number) {
-    this.camera = new THREE.PerspectiveCamera(55, aspect, 0.02, 1e9);
+    this.camera = new THREE.PerspectiveCamera(55, aspect, ORBIT_NEAR, 1e9);
     this.camera.position.set(0, 3e5, 6e5);
     this.smoothTarget.copy(this.target);
   }
@@ -88,6 +95,11 @@ export class CameraRig {
   }
 
   update(dt: number): void {
+    const near = this.mode === 'surface' ? SURFACE_NEAR : ORBIT_NEAR;
+    if (this.camera.near !== near) {
+      this.camera.near = near;
+      this.camera.updateProjectionMatrix();
+    }
     if (this.mode === 'surface') {
       const az = (this.surfaceAzimuth * Math.PI) / 180;
       const alt = (this.surfaceAltitude * Math.PI) / 180;

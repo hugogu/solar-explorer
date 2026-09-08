@@ -29,6 +29,7 @@ export class SurfaceHud {
       this.compassEl,
       el('div', { class: 'surface-card' },
         this.readoutEl,
+        el('div', { class: 'surface-note' }, '地表视角使用真实比例，日月的视直径与实际相同'),
         el('button', { class: 'btn btn-small', onclick: () => onExit() }, '返回太空视角'),
       ),
     );

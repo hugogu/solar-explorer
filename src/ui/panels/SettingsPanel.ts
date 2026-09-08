@@ -14,7 +14,13 @@ export class SettingsPanel {
   private readonly sizeSlider: HTMLInputElement;
   private readonly sizeValue: HTMLElement;
 
-  constructor(private readonly state: AppState, private readonly onExitSurface: () => void) {
+  private readonly exitSurfaceButton: HTMLButtonElement;
+
+  constructor(private readonly state: AppState, onExitSurface: () => void) {
+    this.exitSurfaceButton = el('button', {
+      class: 'btn btn-block',
+      onclick: () => onExitSurface(),
+    }, '退出地表视角 / 回到太空');
     const modeRow = el('div', { class: 'segmented' },
       this.modeButton('compact', '紧凑视图'),
       this.modeButton('real', '真实比例'),
@@ -60,14 +66,12 @@ export class SettingsPanel {
       el('div', { class: 'panel-title' }, '显示内容'),
       el('div', { class: 'toggle-list' }, ...toggles.map((t) => this.toggle(t))),
       el('div', { class: 'panel-title' }, '视角'),
-      el('button', {
-        class: 'btn btn-block',
-        onclick: () => this.onExitSurface(),
-      }, '退出地表视角 / 回到太空'),
+      this.exitSurfaceButton,
       el('div', { class: 'note note-tight' },
         '操作：拖动旋转 · 滚轮或双指缩放 · 点击天体选中 · 空格播放暂停 · [ ] 调速 · 数字键 1—9 快速切换行星。'),
     );
     state.on('settings', () => this.sync());
+    this.sync();
   }
 
   private modeButton(mode: 'compact' | 'real', label: string): HTMLButtonElement {
@@ -97,6 +101,7 @@ export class SettingsPanel {
   }
 
   private sync(): void {
+    this.exitSurfaceButton.disabled = this.state.settings.surface === null;
     const mode = this.state.scaleMode;
     for (const button of this.element.querySelectorAll('.segment')) {
       button.classList.toggle('is-active', button.getAttribute('data-mode') === mode);

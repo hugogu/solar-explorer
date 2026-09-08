@@ -37,6 +37,11 @@ function hexToRgb(hex: string): [number, number, number] {
   return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
 }
 
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
 function mix(a: [number, number, number], b: [number, number, number], t: number): [number, number, number] {
   return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 }
@@ -129,26 +134,35 @@ const PAINTERS: Record<SurfaceStyle, Painter> = {
   },
 
   gasgiant: (p, _x, _y, d, lat) => {
-    // Zonal bands: sample stretched hard along longitude, then warp the latitude.
-    const turb = fbm3(d[0] * 0.6, d[1] * 6, d[2] * 0.6, { octaves: 5, seed: p.seed }) - 0.5;
-    const l = lat + turb * 9;
-    const band = Math.sin(l * 0.22) * 0.5 + 0.5;
-    const fine = fbm3(d[0] * 1.2, d[1] * 22, d[2] * 1.2, { octaves: 4, seed: p.seed + 9 });
-    const t = band * 0.7 + fine * 0.3;
+    // Zonal flow: the noise is sampled stretched hard along longitude so
+    // features smear into ribbons, then the latitude itself is warped so the
+    // belt boundaries wander and curl the way Jupiter's really do.
+    const turb = fbm3(d[0] * 0.55, d[1] * 7, d[2] * 0.55, { octaves: 5, seed: p.seed }) - 0.5;
+    const curl = fbm3(d[0] * 1.6, d[1] * 14, d[2] * 1.6, { octaves: 4, seed: p.seed + 55 }) - 0.5;
+    const l = lat + turb * 7 + curl * 3;
+    // Two frequencies give the alternating wide zones and narrow belts.
+    const raw = Math.sin(l * 0.38) * 0.62 + Math.sin(l * 0.83 + 1.2) * 0.38;
+    const band = smoothstep(-0.55, 0.55, raw);
+    const fine = fbm3(d[0] * 1.4, d[1] * 30, d[2] * 1.4, { octaves: 4, seed: p.seed + 9 });
+    const t = band * 0.72 + fine * 0.28;
     let c = mix(p.secondary, p.primary, t);
-    // Bright zones and dark belts.
-    if (band > 0.72) c = mix(c, [246, 232, 210], (band - 0.72) * 2.4);
-    if (band < 0.28) c = mix(c, [120, 82, 58], (0.28 - band) * 2.2);
-    if (Math.abs(lat) > 62) c = mix(c, [150, 148, 158], (Math.abs(lat) - 62) / 40);
+    if (band > 0.7) c = mix(c, [248, 236, 214], (band - 0.7) * 2.6);
+    if (band < 0.3) c = mix(c, [126, 84, 56], (0.3 - band) * 2.4);
+    // Storm ovals ride along the belt boundaries.
+    const ovals = ridged3(d[0] * 3.4, d[1] * 26, d[2] * 3.4, { octaves: 3, seed: p.seed + 71 });
+    if (ovals > 0.82 && Math.abs(lat) < 55) c = mix(c, [252, 244, 228], (ovals - 0.82) * 3.2);
+    if (Math.abs(lat) > 62) c = mix(c, [146, 146, 156], (Math.abs(lat) - 62) / 42);
     return [c[0], c[1], c[2], 0.5];
   },
 
   saturnoid: (p, _x, _y, d, lat) => {
-    const turb = fbm3(d[0] * 0.5, d[1] * 5, d[2] * 0.5, { octaves: 4, seed: p.seed }) - 0.5;
-    const l = lat + turb * 6;
-    const band = Math.sin(l * 0.17) * 0.5 + 0.5;
-    const fine = fbm3(d[0] * 1.0, d[1] * 16, d[2] * 1.0, { octaves: 4, seed: p.seed + 4 });
-    const c = mix(p.secondary, p.primary, band * 0.75 + fine * 0.25);
+    // Saturn's banding is real but far lower in contrast than Jupiter's.
+    const turb = fbm3(d[0] * 0.45, d[1] * 6, d[2] * 0.45, { octaves: 4, seed: p.seed }) - 0.5;
+    const l = lat + turb * 5;
+    const band = smoothstep(-0.6, 0.6, Math.sin(l * 0.3) * 0.7 + Math.sin(l * 0.66 + 0.8) * 0.3);
+    const fine = fbm3(d[0] * 1.1, d[1] * 22, d[2] * 1.1, { octaves: 4, seed: p.seed + 4 });
+    let c = mix(p.secondary, p.primary, band * 0.68 + fine * 0.32);
+    if (Math.abs(lat) > 66) c = mix(c, [150, 158, 172], (Math.abs(lat) - 66) / 30);
     return [c[0], c[1], c[2], 0.5];
   },
 

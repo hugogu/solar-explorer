@@ -50,7 +50,16 @@ async function boot(): Promise<void> {
     state.time.jd,
   );
 
+  /**
+   * Standing on a surface only tells the truth at true scale: with bodies
+   * exaggerated the Sun and Moon would look many times too wide, and eclipses
+   * would be nonsense. So the surface view switches the scene over and the
+   * previous viewing scale is restored on the way out.
+   */
+  let scaleBeforeSurface = { ...state.settings.scale };
   const enterSurface = (bodyId: string) => {
+    if (!state.settings.surface) scaleBeforeSurface = { ...state.settings.scale };
+    state.setScaleMode('real');
     state.settings.surface = {
       bodyId,
       latitude: state.observer.latitude,
@@ -63,6 +72,7 @@ async function boot(): Promise<void> {
     if (!state.settings.surface) return;
     const bodyId = state.settings.surface.bodyId;
     state.settings.surface = null;
+    state.settings.scale = { ...scaleBeforeSurface };
     state.settings.focus = bodyId;
     const view = scene.views.get(bodyId);
     if (view) scene.rig.frameBody(view.baseRadius * state.settings.scale.bodyScale, 6);

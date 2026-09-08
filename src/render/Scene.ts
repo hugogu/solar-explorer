@@ -279,10 +279,12 @@ export class Scene {
       const sunPosition = this.scaledPositions.get('sun');
       if (state && view && position && sunPosition) {
         const radius = view.baseRadius * settings.scale.bodyScale;
+        // Eye height of about 1.8 m, in scene units, so the horizon sits where
+        // it really would rather than kilometres up.
         const frame = surfaceFrame(
           state.raDec0[0], state.raDec0[1], state.meridian,
           settings.surface.latitude, settings.surface.longitude,
-          radius * 1.0004,
+          radius + 0.0000018,
         );
         const eye = frame.position.clone().add(position);
         this.rig.mode = 'surface';
