@@ -4,8 +4,9 @@
  * (alpha0, delta0) in the ICRF equatorial frame and the prime meridian angle W
  * grows linearly with time.
  */
-import { cos, norm360, sin } from './math';
-import { J2000 } from './time';
+import { RAD, cos, norm360, sin } from './math';
+import { J2000, gmst, ttToJD } from './time';
+import { nutation, precessToJ2000, trueObliquity } from './coords';
 
 export interface RotationState {
   /** north pole right ascension, degrees (equatorial J2000) */
@@ -50,11 +51,11 @@ export const ROTATION_MODELS: Record<string, RotationModel> = {
 
   venus: (jd) => ({ ra0: 272.76, dec0: 67.16, w: norm360(160.2 - 1.4813688 * days(jd)) }),
 
-  earth: (jd) => ({
-    ra0: 0.0 - 0.641 * cent(jd),
-    dec0: 90.0 - 0.557 * cent(jd),
-    w: norm360(190.147 + 360.9856235 * days(jd)),
-  }),
+  // The published IAU expression for the Earth is a linear approximation of
+  // precession and drifts by a few tenths of a degree over decades. The scene
+  // has to agree with the rise/set computations to the second, so the Earth's
+  // orientation is derived from apparent sidereal time and precession instead.
+  earth: (jd) => earthRotationExact(jd),
 
   moon: (jd) => {
     const d = days(jd);
@@ -123,6 +124,55 @@ export const ROTATION_MODELS: Record<string, RotationModel> = {
   pluto: (jd) => ({ ra0: 132.993, dec0: -6.163, w: norm360(302.695 + 56.3625225 * days(jd)) }),
 };
 
+/**
+ * Exact Earth orientation, expressed in the same (ra0, dec0, W) form as the IAU
+ * models so that callers need not special-case it.
+ *
+ * The chain is: Earth-fixed -> equator of date (rotate by apparent sidereal
+ * time) -> ecliptic of date -> ecliptic J2000 -> equatorial J2000.
+ */
+export function earthRotationExact(jdtt: number): RotationState {
+  const jdut = ttToJD(jdtt);
+  const eps = trueObliquity(jdtt);
+  const gast = gmst(jdut) + nutation(jdtt).dpsi * cos(eps);
+
+  const toJ2000Equatorial = (raOfDate: number, decOfDate: number): [number, number, number] => {
+    // Equator of date -> ecliptic of date.
+    const x = cos(decOfDate) * cos(raOfDate);
+    const y = cos(decOfDate) * sin(raOfDate);
+    const z = sin(decOfDate);
+    const ey = y * cos(eps) + z * sin(eps);
+    const ez = -y * sin(eps) + z * cos(eps);
+    const lon = (Math.atan2(ey, x) * RAD + 360) % 360;
+    const lat = Math.asin(Math.max(-1, Math.min(1, ez))) * RAD;
+    // Precess into the J2000 ecliptic, then back to the equator.
+    const p = precessToJ2000(lon, lat, jdtt);
+    const px = cos(p.lat) * cos(p.lon);
+    const py = cos(p.lat) * sin(p.lon);
+    const pz = sin(p.lat);
+    const c = cos(OBLIQUITY_J2000);
+    const sN = sin(OBLIQUITY_J2000);
+    return [px, py * c - pz * sN, py * sN + pz * c];
+  };
+
+  const pole = toJ2000Equatorial(0, 90);
+  const prime = toJ2000Equatorial(gast, 0);
+  const ra0 = norm360(Math.atan2(pole[1], pole[0]) * RAD);
+  const dec0 = Math.asin(Math.max(-1, Math.min(1, pole[2]))) * RAD;
+
+  // Ascending node of the Earth's equator on the ICRF equator: z x pole.
+  const nodeLen = Math.hypot(-pole[1], pole[0]) || 1;
+  const node: [number, number, number] = [-pole[1] / nodeLen, pole[0] / nodeLen, 0];
+  const cross: [number, number, number] = [
+    node[1] * prime[2] - node[2] * prime[1],
+    node[2] * prime[0] - node[0] * prime[2],
+    node[0] * prime[1] - node[1] * prime[0],
+  ];
+  const sinW = cross[0] * pole[0] + cross[1] * pole[1] + cross[2] * pole[2];
+  const cosW = node[0] * prime[0] + node[1] * prime[1] + node[2] * prime[2];
+  return { ra0, dec0, w: norm360(Math.atan2(sinW, cosW) * RAD) };
+}
+
 /** Obliquity of the ecliptic at J2000, used to move poles into the scene frame. */
 export const OBLIQUITY_J2000 = 23.4392911;
 
@@ -137,6 +187,20 @@ export function poleVectorEcliptic(ra0: number, dec0: number): [number, number, 
   const c = cos(OBLIQUITY_J2000);
   const s = sin(OBLIQUITY_J2000);
   return [x, y * c + z * s, -y * s + z * c];
+}
+
+/** Inverse of poleVectorEcliptic: an ecliptic pole direction as IAU ra0/dec0. */
+export function poleEclipticToEquatorial(pole: [number, number, number]): { ra0: number; dec0: number } {
+  const c = cos(OBLIQUITY_J2000);
+  const s = sin(OBLIQUITY_J2000);
+  const x = pole[0];
+  const y = pole[1] * c - pole[2] * s;
+  const z = pole[1] * s + pole[2] * c;
+  const r = Math.hypot(x, y, z) || 1;
+  return {
+    ra0: norm360((Math.atan2(y, x) * 180) / Math.PI),
+    dec0: (Math.asin(Math.max(-1, Math.min(1, z / r))) * 180) / Math.PI,
+  };
 }
 
 /** Axial tilt relative to the body's own orbital plane, degrees. */
