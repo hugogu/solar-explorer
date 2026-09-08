@@ -273,10 +273,19 @@ async function boot(): Promise<void> {
   requestAnimationFrame(frame);
 }
 
+/**
+ * Texture resolution budget.
+ *
+ * Judged from the device rather than the window: a browser window dragged
+ * narrow, or one reporting zero size because its tab is hidden, is still a
+ * desktop and should not be handed phone-sized textures.
+ */
 function pickQuality(): 'low' | 'medium' | 'high' {
-  const mobile = Math.min(window.innerWidth, window.innerHeight) < 700;
   const cores = navigator.hardwareConcurrency ?? 4;
-  if (mobile || cores <= 4) return 'low';
+  const touchFirst = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+  const shortEdge = Math.min(window.screen?.width ?? 1920, window.screen?.height ?? 1080);
+  if (touchFirst && shortEdge < 900) return 'low';
+  if (cores <= 4) return 'low';
   return cores >= 8 ? 'high' : 'medium';
 }
 

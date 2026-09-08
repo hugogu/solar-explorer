@@ -52,10 +52,20 @@ export async function loadPhotoMaps(base = 'textures'): Promise<Map<string, Phot
   const result = new Map<string, PhotoMaps>();
   let manifest: Manifest;
   try {
-    const response = await fetch(`${base}/manifest.json`, { cache: 'force-cache' });
+    // No cache override here. A dev server or a static host answers a missing
+    // file with index.html and a 200, and caching that reply would keep the
+    // real manifest permanently out of reach once it was finally deployed.
+    const response = await fetch(`${base}/manifest.json`);
     if (!response.ok) return result;
-    manifest = (await response.json()) as Manifest;
-  } catch {
+    const text = await response.text();
+    // A 200 is not proof the file exists, so check that it really is JSON.
+    if (!text.trimStart().startsWith('{')) {
+      console.info('[textures] no manifest found; using procedural surfaces. Run "npm run fetch-textures" to add the photographic maps.');
+      return result;
+    }
+    manifest = JSON.parse(text) as Manifest;
+  } catch (error) {
+    console.warn('[textures] manifest could not be read; using procedural surfaces.', error);
     return result;
   }
 
