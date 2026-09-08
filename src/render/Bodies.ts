@@ -37,10 +37,14 @@ export class BodyView {
   private clouds?: THREE.Mesh;
   private ringMesh?: THREE.Mesh;
   private glow?: THREE.Sprite;
+  private marker?: THREE.Sprite;
   private coma?: THREE.Sprite;
   private tails?: THREE.Group;
   /** unscaled radius in scene units */
   readonly baseRadius: number;
+  /** true until a procedural surface has been generated for this body */
+  needsGeneratedSurface = false;
+  private textureSize = 512;
   private oblateness = 1;
 
   constructor(info: BodyInfo, options: BodyViewOptions) {
@@ -56,17 +60,19 @@ export class BodyView {
     }
 
     const photo = options.photoMaps?.get(info.id);
-    const generated = photo?.map ? undefined : generateSurface(info, options.textureSize, options.textureSize / 2);
-    const map = photo?.map ?? generated?.map;
-    const normalMap = photo?.normalMap ?? generated?.normalMap;
+    this.needsGeneratedSurface = !photo?.map;
+    this.textureSize = options.textureSize;
 
     const geometry = new THREE.SphereGeometry(1, options.segments, options.segments / 2);
     if (info.emissive) {
-      this.material = new THREE.MeshBasicMaterial({ map, color: 0xffffff });
+      this.material = new THREE.MeshBasicMaterial({ map: photo?.map, color: photo?.map ? 0xffffff : new THREE.Color(info.color) });
     } else {
+      // Bodies start as flat colour and receive their generated surface later,
+      // so the first frame arrives without waiting on any texture work.
       this.material = new THREE.MeshStandardMaterial({
-        map,
-        normalMap,
+        map: photo?.map,
+        normalMap: photo?.normalMap,
+        color: photo?.map ? 0xffffff : new THREE.Color(info.color),
         normalScale: new THREE.Vector2(0.8, 0.8),
         roughness: info.kind === 'planet' && info.atmosphereColor ? 0.85 : 0.95,
         metalness: 0,
@@ -80,11 +86,25 @@ export class BodyView {
     this.mesh.userData.bodyId = info.id;
     this.spin.add(this.mesh);
 
+    this.addMarker();
     if (info.atmosphereColor) this.addAtmosphere(info.atmosphereColor);
     if (photo?.cloudMap) this.addClouds(photo.cloudMap);
     if (info.rings) this.addRings();
     if (info.emissive) this.addCorona();
     if (info.kind === 'comet') this.addComa();
+  }
+
+  /** Swap in the procedurally generated surface once it has been built. */
+  generateSurfaceNow(): void {
+    if (!this.needsGeneratedSurface) return;
+    this.needsGeneratedSurface = false;
+    const maps = generateSurface(this.info, this.textureSize, this.textureSize / 2);
+    this.material.map = maps.map;
+    this.material.color.setScalar(1);
+    if (!this.info.emissive && maps.normalMap) {
+      (this.material as THREE.MeshStandardMaterial).normalMap = maps.normalMap;
+    }
+    this.material.needsUpdate = true;
   }
 
   /**
@@ -109,19 +129,62 @@ export class BodyView {
     };
   }
 
+  /**
+   * A soft dot that keeps the body visible when its disc is smaller than a
+   * pixel - the same trick planetarium software uses so distant worlds do not
+   * simply vanish.
+   */
+  private addMarker(): void {
+    const sprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: radialSprite(this.info.emissive ? '#fff0c8' : this.info.color, 64, 2.2),
+        transparent: true,
+        depthWrite: false,
+        depthTest: false,
+        blending: THREE.AdditiveBlending,
+        opacity: 0.9,
+      }),
+    );
+    sprite.renderOrder = 5;
+    this.marker = sprite;
+    this.group.add(sprite);
+  }
+
+  /**
+   * @param worldSize diameter, in scene units, that renders as the minimum
+   *   readable dot at the body's current distance
+   */
+  updateMarker(worldSize: number, bodyWorldSize: number): void {
+    if (!this.marker) return;
+    const visible = bodyWorldSize < worldSize;
+    this.marker.visible = visible;
+    if (!visible) return;
+    this.marker.scale.setScalar(worldSize * 2.6);
+    const fade = Math.min(1, worldSize / Math.max(bodyWorldSize, 1e-6) / 3);
+    (this.marker.material as THREE.SpriteMaterial).opacity = 0.35 + 0.5 * Math.min(1, fade);
+  }
+
+  /**
+   * Atmospheric limb glow. Drawn on the front face of a slightly larger shell:
+   * the rim term peaks at the silhouette edge and the sunward term keeps the
+   * night side dark, so the halo hugs the lit crescent the way it really does.
+   */
   private addAtmosphere(color: string): void {
     const material = new THREE.ShaderMaterial({
       uniforms: {
         uColor: { value: new THREE.Color(color) },
-        uPower: { value: 3.0 },
-        uIntensity: { value: 0.9 },
+        uPower: { value: 3.2 },
+        uIntensity: { value: 1.15 },
+        uSunDirection: { value: new THREE.Vector3(1, 0, 0) },
       },
       vertexShader: `
         varying vec3 vNormalView;
         varying vec3 vViewDir;
+        varying vec3 vWorldNormal;
         void main() {
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           vNormalView = normalize(normalMatrix * normal);
+          vWorldNormal = normalize(mat3(modelMatrix) * normal);
           vViewDir = normalize(-mv.xyz);
           gl_Position = projectionMatrix * mv;
         }
@@ -130,20 +193,24 @@ export class BodyView {
         uniform vec3 uColor;
         uniform float uPower;
         uniform float uIntensity;
+        uniform vec3 uSunDirection;
         varying vec3 vNormalView;
         varying vec3 vViewDir;
+        varying vec3 vWorldNormal;
         void main() {
           float rim = 1.0 - max(dot(vNormalView, vViewDir), 0.0);
-          float a = pow(rim, uPower) * uIntensity;
+          float lit = clamp(dot(vWorldNormal, uSunDirection) * 1.6 + 0.35, 0.0, 1.0);
+          float a = pow(rim, uPower) * uIntensity * lit;
+          if (a < 0.002) discard;
           gl_FragColor = vec4(uColor, a);
         }
       `,
       transparent: true,
-      side: THREE.BackSide,
+      side: THREE.FrontSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
-    this.atmosphere = new THREE.Mesh(new THREE.SphereGeometry(1.035, 48, 24), material);
+    this.atmosphere = new THREE.Mesh(new THREE.SphereGeometry(1.045, 48, 24), material);
     this.group.add(this.atmosphere);
   }
 
@@ -254,6 +321,10 @@ export class BodyView {
       this.ringsHolder.scale.setScalar(radius);
     }
 
+    if (this.atmosphere && sunDirection) {
+      const uniforms = (this.atmosphere.material as THREE.ShaderMaterial).uniforms;
+      (uniforms.uSunDirection.value as THREE.Vector3).copy(sunDirection);
+    }
     if (this.glow) this.glow.scale.setScalar(radius * 5.5);
     if (this.coma && sunDirection) this.updateComet(state, radius, sunDirection);
 

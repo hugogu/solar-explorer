@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no"
+    />
+    <meta name="theme-color" content="#05070d" />
+    <meta
+      name="description"
+      content="交互式 3D 太阳系：真实星历驱动的行星、卫星、矮行星与彗星，可模拟任意时刻的天体位置、日出日落与日食月食。"
+    />
+    <title>太阳系 · 3D 交互星图</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="viewport"></canvas>
+      <div id="labels" class="labels"></div>
+      <div id="ui"></div>
+    </div>
+    <div id="loading" class="loading">
+      <div class="loading-inner">
+        <div class="loading-title">太阳系</div>
+        <div class="loading-sub">正在生成星球表面与星空…</div>
+        <div class="loading-bar"><div class="loading-fill" id="loading-fill"></div></div>
+        <div class="loading-step" id="loading-step"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

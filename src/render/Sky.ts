@@ -95,7 +95,8 @@ export class Sky {
       colors[i * 3] = c.r * (0.35 + brightness);
       colors[i * 3 + 1] = c.g * (0.35 + brightness);
       colors[i * 3 + 2] = c.b * (0.35 + brightness);
-      sizes[i] = radius * (0.0009 + brightness * 0.0042);
+      // Stars sit at a fixed distance, so their size is simply a pixel radius.
+      sizes[i] = 1.0 + brightness * 2.6;
     }
 
     const geometry = new THREE.BufferGeometry();
@@ -104,7 +105,7 @@ export class Sky {
     geometry.setAttribute('starSize', new THREE.BufferAttribute(sizes, 1));
 
     const material = new THREE.ShaderMaterial({
-      uniforms: { uScale: { value: 1 } },
+      uniforms: { uScale: { value: Math.min(2, window.devicePixelRatio || 1) } },
       vertexShader: `
         attribute float starSize;
         varying vec3 vColor;
@@ -113,7 +114,7 @@ export class Sky {
           vColor = color;
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mv;
-          gl_PointSize = max(1.0, starSize * uScale / max(1.0, -mv.z) * 260000.0);
+          gl_PointSize = starSize * uScale;
         }
       `,
       fragmentShader: `
@@ -145,7 +146,7 @@ export class Sky {
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
-        opacity: 0.85,
+        opacity: 0.5,
       }),
     );
     this.milkyWay.renderOrder = -11;
@@ -190,7 +191,7 @@ function generateMilkyWayTexture(width: number): THREE.Texture {
       const bDeg = Math.abs((b * 180) / Math.PI);
 
       // Core band brightness plus a wider halo.
-      let glow = Math.exp(-((bDeg / 7.5) ** 1.6)) * 0.85 + Math.exp(-((bDeg / 26) ** 2)) * 0.3;
+      let glow = Math.exp(-((bDeg / 6.0) ** 1.5)) * 0.8 + Math.exp(-((bDeg / 18) ** 2)) * 0.22;
       const clouds = fbm3(dir[0] * 4, dir[1] * 4, dir[2] * 4, { octaves: 5, seed: 5 });
       const lanes = ridged3(dir[0] * 3, dir[1] * 9, dir[2] * 3, { octaves: 4, seed: 91 });
       glow *= 0.55 + clouds * 0.9;
@@ -198,10 +199,10 @@ function generateMilkyWayTexture(width: number): THREE.Texture {
       glow = Math.max(0, Math.min(1, glow));
 
       const i = (y * width + x) * 4;
-      image.data[i] = 150 + glow * 90;
-      image.data[i + 1] = 160 + glow * 80;
-      image.data[i + 2] = 205 + glow * 50;
-      image.data[i + 3] = glow * 150;
+      image.data[i] = 118 + glow * 90;
+      image.data[i + 1] = 132 + glow * 86;
+      image.data[i + 2] = 178 + glow * 60;
+      image.data[i + 3] = glow * glow * 190;
     }
   }
   ctx.putImageData(image, 0, 0);
