@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { findEclipses, SolarEclipse } from '../src/astro/eclipse';
 import {
-  geometryAt, groundPoint, groundView, penumbraOutline, shadowPositionAt, solarEclipsePath,
+  axisDistance, geometryAt, groundPoint, groundView, penumbraOutline, shadowPositionAt,
+  solarEclipsePath,
 } from '../src/astro/eclipsepath';
 import { jdToDate, utcToJD } from '../src/astro/time';
 
@@ -48,6 +49,46 @@ describe('solar eclipse tracks', () => {
     // width over speed would badly overestimate how long totality lasts.
     const path = solarEclipsePath(solarEclipseOn('2026-08-12'), 4);
     expect(Math.abs(path.maxDurationSeconds / 138 - 1)).toBeLessThan(0.08);
+  });
+
+  it('runs the central track right to both ends', () => {
+    // The contacts either side of greatest eclipse are searched in opposite
+    // directions; getting the bracket order wrong silently truncated the
+    // second half of every track.
+    for (const date of ['2024-04-08', '2027-08-02', '2030-11-25']) {
+      const eclipse = solarEclipseOn(date);
+      const path = solarEclipsePath(eclipse, 6);
+      const before = (eclipse.jdMax - (path.centralStart as number)) * 1440;
+      const after = ((path.centralEnd as number) - eclipse.jdMax) * 1440;
+      expect(before, date).toBeGreaterThan(60);
+      expect(after, date).toBeGreaterThan(60);
+      // A central track is very nearly symmetric about greatest eclipse.
+      expect(Math.abs(after / before - 1), date).toBeLessThan(0.15);
+
+      // Both ends are exactly where the axis grazes the limb.
+      for (const jd of [path.centralStart as number, path.centralEnd as number]) {
+        expect(axisDistance(geometryAt(jd)), date).toBeCloseTo(0.9972, 3);
+      }
+    }
+  });
+
+  it('carries the 2030 track all the way to Australia', () => {
+    // It starts in the South Atlantic, crosses southern Africa and makes
+    // landfall again in Queensland; the truncated version stopped mid-ocean.
+    const path = solarEclipsePath(solarEclipseOn('2030-11-25'), 4);
+    const first = path.samples[0];
+    const last = path.samples[path.samples.length - 1];
+    expect(first.longitude).toBeLessThan(20);
+    expect(last.longitude).toBeGreaterThan(140);
+    expect(last.latitude).toBeLessThan(-20);
+  });
+
+  it('leaves the umbra marker on the track at the last moment of the track', () => {
+    const path = solarEclipsePath(solarEclipseOn('2027-08-02'), 4);
+    const last = path.samples[path.samples.length - 1];
+    const marker = shadowPositionAt(path.centralEnd as number);
+    expect(Math.abs(marker.latitude - last.latitude)).toBeLessThan(3);
+    expect(Math.abs(marker.longitude - last.longitude)).toBeLessThan(3);
   });
 
   it('orders the contact times', () => {

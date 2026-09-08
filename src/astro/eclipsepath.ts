@@ -228,12 +228,25 @@ function penumbraLimit(eclipse: SolarEclipse): number {
   return 1.5433 + eclipse.u;
 }
 
-function bisectDistance(target: number, lo: number, hi: number): number {
-  let a = lo;
-  let b = hi;
+/**
+ * The moment the shadow axis crosses a given distance from the Earth's centre.
+ *
+ * `outside` and `inside` bracket the crossing and may be given in either time
+ * order, which matters because the contacts before and after greatest eclipse
+ * are searched in opposite directions.
+ *
+ * @param target distance in Earth radii
+ * @param outside a time at which the axis is further away than the target
+ * @param inside a time at which it is nearer
+ * @returns the crossing time, or `inside` when the bracket holds no crossing
+ */
+function axisDistanceCrossing(target: number, outside: number, inside: number): number {
   const f = (jd: number) => axisDistance(geometryAt(jd)) - target;
+  let a = outside;
+  let b = inside;
   let fa = f(a);
-  for (let i = 0; i < 50 && b - a > 1e-6; i++) {
+  if (fa * f(b) > 0) return inside;
+  for (let i = 0; i < 60 && Math.abs(b - a) > 1e-7; i++) {
     const m = (a + b) / 2;
     const fm = f(m);
     if (fa * fm <= 0) b = m;
@@ -344,19 +357,19 @@ function groundDistanceKm(
  */
 export function solarEclipsePath(eclipse: SolarEclipse, stepMinutes = 4): EclipsePath {
   const limit = penumbraLimit(eclipse);
-  const window = 3.6 / 24;
+  const window = 4.2 / 24;
   const centre = eclipse.jdMax;
 
   // The penumbra touches the Earth while the axis passes closer than the
   // combined radii; find those two moments by bisection.
-  const penumbraStart = bisectDistance(limit, centre - window, centre);
-  const penumbraEnd = bisectDistance(limit, centre + window, centre);
+  const penumbraStart = axisDistanceCrossing(limit, centre - window, centre);
+  const penumbraEnd = axisDistanceCrossing(limit, centre + window, centre);
 
   let centralStart: number | undefined;
   let centralEnd: number | undefined;
   if (Math.abs(eclipse.gamma) < 0.9972) {
-    centralStart = bisectDistance(0.9972, penumbraStart, centre);
-    centralEnd = bisectDistance(0.9972, penumbraEnd, centre);
+    centralStart = axisDistanceCrossing(0.9972, penumbraStart, centre);
+    centralEnd = axisDistanceCrossing(0.9972, penumbraEnd, centre);
   }
 
   const step = stepMinutes / 1440;
