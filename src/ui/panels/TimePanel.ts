@@ -11,6 +11,7 @@ export class TimePanel {
   private readonly clockEl: HTMLElement;
   private readonly speedEl: HTMLElement;
   private readonly playButton: HTMLButtonElement;
+  private readonly reverseButton: HTMLButtonElement;
   private readonly slider: HTMLInputElement;
   private readonly dateInput: HTMLInputElement;
   private readonly rangeWarning: HTMLElement;
@@ -30,6 +31,19 @@ export class TimePanel {
         this.renderPlayIcon();
       },
     });
+
+    // Running time backwards is worth a control of its own: it is how you watch
+    // an eclipse shadow retrace its path, or wind a planet back to a past
+    // opposition.
+    this.reverseButton = el('button', {
+      class: 'btn btn-ghost',
+      title: '时间倒流（R）',
+      'aria-label': '时间倒流',
+      onclick: () => {
+        this.state.time.toggleDirection();
+        this.update();
+      },
+    }, icon(ICONS.reverse, 15));
 
     this.slider = el('input', {
       type: 'range',
@@ -69,6 +83,7 @@ export class TimePanel {
       el(
         'div',
         { class: 'time-controls' },
+        this.reverseButton,
         this.stepButton(ICONS.back, '后退一步', -1),
         this.playButton,
         this.stepButton(ICONS.forward, '前进一步', 1),
@@ -118,6 +133,8 @@ export class TimePanel {
     this.dateEl.textContent = `${formatDate(time.jd, observer.offsetHours)} ${weekday(time.jd, observer.offsetHours)}`;
     this.clockEl.textContent = formatClockSeconds(time.jd, observer.offsetHours);
     this.speedEl.textContent = time.speedLabel;
+    this.reverseButton.classList.toggle('is-active', time.reversed);
+    this.element.classList.toggle('is-reversed', time.reversed);
     if (this.slider.value !== String(time.speedIndex)) this.slider.value = String(time.speedIndex);
     const zone = this.element.querySelector('.time-zone');
     if (zone) zone.textContent = `${observer.name} · ${formatOffset(observer.offsetHours)}`;

@@ -254,6 +254,15 @@ input[type='range']::-moz-range-thumb {
 .time-speed-row { display: flex; align-items: center; gap: 10px; min-width: 150px; }
 .speed-slider { flex: 1; }
 .time-speed { font-size: 11px; color: var(--muted); font-family: var(--mono); white-space: nowrap; min-width: 62px; }
+
+/* Running backwards is a mode, not a momentary action, so it stays lit. */
+.btn.is-active {
+  background: rgba(255, 196, 107, 0.22);
+  border-color: rgba(255, 196, 107, 0.5);
+  color: var(--accent-warm);
+}
+.time-panel.is-reversed .time-clock { color: var(--accent-warm); }
+.time-panel.is-reversed .time-speed { color: var(--accent-warm); }
 .time-jump { display: flex; gap: 6px; }
 .time-jump .field { width: auto; }
 

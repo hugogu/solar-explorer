@@ -206,7 +206,7 @@ async function boot(): Promise<void> {
         time.slower();
         break;
       case 'r':
-        time.direction = time.direction === 1 ? -1 : 1;
+        time.toggleDirection();
         break;
       case 'l':
         state.settings.showLabels = !state.settings.showLabels;

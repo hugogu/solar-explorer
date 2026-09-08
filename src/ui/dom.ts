@@ -65,4 +65,5 @@ export const ICONS = {
   chevron: 'M9 6l6 6-6 6',
   location: 'M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11zM12 10a1.5 1.5 0 100-3 1.5 1.5 0 000 3z',
   menu: 'M4 7h16M4 12h16M4 17h16',
+  reverse: 'M4 12a8 8 0 1 0 2.34-5.66M4 4v5h5',
 };

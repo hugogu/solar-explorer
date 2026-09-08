@@ -182,3 +182,62 @@ export function precessFromJ2000(lon: number, lat: number, jdtt: number): { lon:
 export function precessToJ2000(lon: number, lat: number, jdtt: number): { lon: number; lat: number } {
   return precessEcliptic(lon, lat, jdtt, 2451545.0);
 }
+
+/**
+ * Galactic coordinates.
+ *
+ * The frame is pinned by two directions: the north galactic pole and the
+ * galactic centre in Sagittarius. Working with the basis vectors rather than
+ * the spherical formulae keeps the per-pixel cost low for the sky texture.
+ */
+const NGP = { ra: 192.85948, dec: 27.12825 };
+const GALACTIC_CENTRE = { ra: 266.405, dec: -28.936 };
+
+type Triple = [number, number, number];
+
+function direction(ra: number, dec: number): Triple {
+  return [cos(dec) * cos(ra), cos(dec) * sin(ra), sin(dec)];
+}
+
+/** [towards the galactic centre, in-plane perpendicular, north galactic pole]. */
+export const GALACTIC_BASIS: [Triple, Triple, Triple] = (() => {
+  const z = direction(NGP.ra, NGP.dec);
+  const raw = direction(GALACTIC_CENTRE.ra, GALACTIC_CENTRE.dec);
+  // Remove any residual tilt so the basis is exactly orthonormal.
+  const along = raw[0] * z[0] + raw[1] * z[1] + raw[2] * z[2];
+  const x: Triple = [raw[0] - along * z[0], raw[1] - along * z[1], raw[2] - along * z[2]];
+  const norm = Math.hypot(x[0], x[1], x[2]);
+  x[0] /= norm;
+  x[1] /= norm;
+  x[2] /= norm;
+  const y: Triple = [
+    z[1] * x[2] - z[2] * x[1],
+    z[2] * x[0] - z[0] * x[2],
+    z[0] * x[1] - z[1] * x[0],
+  ];
+  return [x, y, z];
+})();
+
+export interface Galactic {
+  /** galactic longitude, degrees in [0, 360) */
+  l: number;
+  /** galactic latitude, degrees */
+  b: number;
+}
+
+/** Galactic coordinates of a unit vector given in the equatorial J2000 frame. */
+export function equatorialVectorToGalactic(v: Triple): Galactic {
+  const [x, y, z] = GALACTIC_BASIS;
+  const along = v[0] * x[0] + v[1] * x[1] + v[2] * x[2];
+  const across = v[0] * y[0] + v[1] * y[1] + v[2] * y[2];
+  const up = v[0] * z[0] + v[1] * z[1] + v[2] * z[2];
+  return {
+    l: norm360(Math.atan2(across, along) * RAD),
+    b: Math.asin(clamp(up, -1, 1)) * RAD,
+  };
+}
+
+/** Galactic coordinates of an equatorial right ascension and declination. */
+export function equatorialToGalactic(ra: number, dec: number): Galactic {
+  return equatorialVectorToGalactic(direction(ra, dec));
+}

@@ -39,7 +39,16 @@ export class TimeController {
 
   get speedLabel(): string {
     const label = SPEED_PRESETS[this.speedIndex].label;
-    return this.direction < 0 ? `-${label}` : label;
+    return this.direction < 0 ? `倒放 ${label}` : label;
+  }
+
+  get reversed(): boolean {
+    return this.direction < 0;
+  }
+
+  /** Run time backwards, or forwards again. */
+  toggleDirection(): void {
+    this.direction = this.direction === 1 ? -1 : 1;
   }
 
   /** Advance by a real-time delta in seconds. */
