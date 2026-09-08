@@ -4,6 +4,17 @@ import tsparser from '@typescript-eslint/parser';
 
 export default [
   { ignores: ['dist/**', 'node_modules/**'] },
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        console: 'readonly', process: 'readonly', fetch: 'readonly',
+        Buffer: 'readonly', URL: 'readonly',
+      },
+    },
+  },
   js.configs.recommended,
   {
     files: ['**/*.ts'],

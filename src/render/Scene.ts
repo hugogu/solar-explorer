@@ -16,6 +16,7 @@ import {
 import { Sky } from './Sky';
 import { AtmosphereSky, SKY_PROFILES } from './AtmosphereSky';
 import { AU_UNITS, ScaleSettings, scaleHeliocentric } from './frame';
+import { AU_KM } from '../astro/planets';
 import { surfaceFrame } from './orientation';
 import { lunarPositionJ2000 } from '../astro/satellites';
 import { jdToTT } from '../astro/time';
@@ -44,6 +45,8 @@ export interface ViewSettings {
   /** first-person observer, when standing on a surface */
   surface: { bodyId: string; latitude: number; longitude: number } | null;
 }
+
+const SUN_RADIUS_KM = 696340;
 
 const QUALITY_PRESETS = {
   low: { textureSize: 512, segments: 32, starCount: 5000, milkyWay: 384, pixelRatio: 1 },
@@ -179,6 +182,7 @@ export class Scene {
       view.updateMarker(this.minimumVisibleSize(cameraDistance), view.baseRadius * scale.bodyScale * 2);
     }
 
+    this.updateEclipseShadows(simulation);
     this.updateCamera(simulation, settings, dt);
     this.belts.update(jdToTT(simulation.jd) - J2000, scale, this.beltPointScale());
     this.belts.setAllVisible(settings.showBelts);
@@ -187,6 +191,72 @@ export class Scene {
     this.sky.setVisible(settings.showStars, settings.showMilkyWay);
     this.updateOrbitVisibility(settings);
     this.updateLabels(simulation, settings);
+  }
+
+  /**
+   * Work out which body, if any, is currently casting a shadow onto each world,
+   * and hand the true geometry to its material.
+   *
+   * This is what puts the Moon's shadow on the Earth during a solar eclipse and
+   * Io's shadow on Jupiter, and it uses unscaled positions so the shadow is the
+   * right size no matter how the scene is scaled for viewing.
+   */
+  private updateEclipseShadows(simulation: Simulation): void {
+    const sun = simulation.get('sun');
+    if (!sun) return;
+    const relative = (a: BodyState, b: BodyState, radiusKm: number): THREE.Vector3 =>
+      new THREE.Vector3(
+        a.position[0] - b.position[0],
+        a.position[2] - b.position[2],
+        -(a.position[1] - b.position[1]),
+      ).multiplyScalar(AU_KM / radiusKm);
+
+    for (const state of simulation.list()) {
+      const view = this.views.get(state.id);
+      if (!view || state.info.kind === 'star' || state.info.kind === 'comet') continue;
+      const radiusKm = state.info.physical.radiusKm;
+      const sunRel = relative(sun, state, radiusKm);
+      const sunRadius = SUN_RADIUS_KM / radiusKm;
+
+      let bestCaster: BodyState | null = null;
+      let bestAngle = Infinity;
+      for (const candidate of this.shadowCandidates(simulation, state)) {
+        const casterRel = relative(candidate, state, radiusKm);
+        if (casterRel.length() >= sunRel.length()) continue;
+        const angle = casterRel.angleTo(sunRel);
+        if (angle < bestAngle) {
+          bestAngle = angle;
+          bestCaster = candidate;
+        }
+      }
+      // Beyond a few degrees the shadow cone cannot touch this body at all.
+      if (bestCaster && bestAngle < 0.35) {
+        view.setEclipseCaster(
+          sunRel, sunRadius,
+          relative(bestCaster, state, radiusKm),
+          bestCaster.info.physical.radiusKm / radiusKm,
+        );
+      } else {
+        view.setEclipseCaster(sunRel, sunRadius, null, 0);
+      }
+    }
+  }
+
+  /** Bodies close enough to this one to plausibly eclipse its sunlight. */
+  private shadowCandidates(simulation: Simulation, state: BodyState): BodyState[] {
+    const result: BodyState[] = [];
+    if (state.parentId) {
+      const parent = simulation.get(state.parentId);
+      if (parent) result.push(parent);
+      for (const sibling of simulation.list()) {
+        if (sibling.parentId === state.parentId && sibling.id !== state.id) result.push(sibling);
+      }
+    } else {
+      for (const other of simulation.list()) {
+        if (other.parentId === state.id) result.push(other);
+      }
+    }
+    return result;
   }
 
   private scaledPositionOf(state: BodyState, scale: ScaleSettings): THREE.Vector3 {

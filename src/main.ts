@@ -7,6 +7,9 @@ import { Ui } from './ui/Ui';
 import { loadPhotoMaps } from './render/textures/photoMaps';
 import { PLANET_IDS } from './astro/planets';
 import { nextFrame } from './app/schedule';
+import { surfaceFrame } from './render/orientation';
+import type { Eclipse } from './astro/eclipse';
+import * as THREE from 'three';
 
 const PLANET_KEYS = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
 
@@ -67,9 +70,54 @@ async function boot(): Promise<void> {
     state.emit('settings');
   };
 
+  /**
+   * Put the camera where the eclipse can actually be seen.
+   *
+   * Shadow geometry is only right at true scale - exaggerated bodies would cast
+   * exaggerated shadows - so watching an eclipse switches the view over.
+   */
+  const watchEclipse = (eclipse: Eclipse) => {
+    state.time.jd = eclipse.jdMax;
+    state.time.playing = false;
+    state.settings.surface = null;
+    state.setScaleMode('real');
+    const solar = eclipse.kind === 'solar';
+    const targetId = solar ? 'earth' : 'moon';
+    state.select(targetId);
+    simulation.update(state.time.jd);
+    scene.update(simulation, state.settings, 0.016);
+
+    const rig = scene.rig;
+    const target = scene.positionOf(targetId);
+    const sunPosition = scene.positionOf('sun');
+    if (!target || !sunPosition) return;
+
+    let direction: THREE.Vector3;
+    if (solar) {
+      // Look straight down on the point of greatest eclipse.
+      const earth = simulation.get('earth');
+      const rotation = earth ? earth.raDec0 : [0, 90];
+      const frame = surfaceFrame(
+        rotation[0], rotation[1], earth?.meridian ?? 0,
+        eclipse.greatestAt.latitude, eclipse.greatestAt.longitude, 1,
+      );
+      direction = frame.up.clone();
+    } else {
+      // Watch the Moon from the Earth's night side, looking down the shadow.
+      direction = target.clone().sub(sunPosition).normalize();
+    }
+    rig.azimuth = Math.atan2(direction.x, direction.z);
+    rig.polar = Math.acos(Math.max(-1, Math.min(1, direction.y)));
+    const view = scene.views.get(targetId);
+    rig.frameBody(view ? view.baseRadius : 1.7, solar ? 2.6 : 5);
+    rig.snap();
+    state.emit('settings');
+  };
+
   const ui = new Ui(uiContainer, state, () => simulation, {
     onSurfaceView: enterSurface,
     onExitSurface: exitSurface,
+    onWatchEclipse: watchEclipse,
   });
 
   state.on('observer', () => {
@@ -134,7 +182,12 @@ async function boot(): Promise<void> {
     }
   }
 
-  const resize = () => scene.resize(window.innerWidth, window.innerHeight);
+  // A hidden tab can report a zero-sized viewport; keeping the last good size
+  // avoids a divide-by-zero camera and a spurious switch to the phone layout.
+  const resize = () => {
+    if (window.innerWidth < 1 || window.innerHeight < 1) return;
+    scene.resize(window.innerWidth, window.innerHeight);
+  };
   window.addEventListener('resize', resize);
   resize();
   scene.rig.distance = 1.9e6;

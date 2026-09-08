@@ -45,6 +45,18 @@ export class BodyView {
   /** true until a procedural surface has been generated for this body */
   needsGeneratedSurface = false;
   private textureSize = 512;
+  /**
+   * Eclipse shading uniforms. Everything is expressed in this body's own radii
+   * and in true, unscaled geometry, so the shadow stays physically correct even
+   * when the scene is showing exaggerated sizes and compressed distances.
+   */
+  private readonly eclipseUniforms = {
+    uEclipseSunRel: { value: new THREE.Vector3(1e6, 0, 0) },
+    uEclipseSunRadius: { value: 1 },
+    uEclipseCasterRel: { value: new THREE.Vector3(0, 0, 1e9) },
+    uEclipseCasterRadius: { value: 0 },
+    uEclipseStrength: { value: 0 },
+  };
   private oblateness = 1;
 
   constructor(info: BodyInfo, options: BodyViewOptions) {
@@ -64,23 +76,28 @@ export class BodyView {
     this.textureSize = options.textureSize;
 
     const geometry = new THREE.SphereGeometry(1, options.segments, options.segments / 2);
+    // Bodies start as flat colour and receive their generated surface later, so
+    // the first frame arrives without waiting on any texture work. three.js
+    // warns about explicitly undefined map parameters, hence the conditionals.
+    const baseColor = photo?.map ? new THREE.Color(0xffffff) : new THREE.Color(info.color);
     if (info.emissive) {
-      this.material = new THREE.MeshBasicMaterial({ map: photo?.map, color: photo?.map ? 0xffffff : new THREE.Color(info.color) });
+      this.material = new THREE.MeshBasicMaterial({ color: baseColor });
+      if (photo?.map) this.material.map = photo.map;
     } else {
-      // Bodies start as flat colour and receive their generated surface later,
-      // so the first frame arrives without waiting on any texture work.
-      this.material = new THREE.MeshStandardMaterial({
-        map: photo?.map,
-        normalMap: photo?.normalMap,
-        color: photo?.map ? 0xffffff : new THREE.Color(info.color),
+      const standard = new THREE.MeshStandardMaterial({
+        color: baseColor,
         normalScale: new THREE.Vector2(0.8, 0.8),
         roughness: info.kind === 'planet' && info.atmosphereColor ? 0.85 : 0.95,
         metalness: 0,
       });
+      if (photo?.map) standard.map = photo.map;
+      if (photo?.normalMap) standard.normalMap = photo.normalMap;
+      this.material = standard;
       if (photo?.specularMap) {
         (this.material as THREE.MeshStandardMaterial).roughnessMap = photo.specularMap;
       }
       if (photo?.nightMap) this.applyNightLights(photo.nightMap);
+      this.applyEclipseShading();
     }
     this.mesh = new THREE.Mesh(geometry, this.material);
     this.mesh.userData.bodyId = info.id;
@@ -92,6 +109,97 @@ export class BodyView {
     if (info.rings) this.addRings();
     if (info.emissive) this.addCorona();
     if (info.kind === 'comet') this.addComa();
+  }
+
+  /**
+   * Darken the surface where another body blocks part of the Sun.
+   *
+   * The fraction of the solar disc hidden is worked out per fragment from the
+   * true angular radii and separation, which is what makes the umbra, the
+   * penumbra and the ring of an annular eclipse all fall out of one formula.
+   */
+  private applyEclipseShading(): void {
+    const material = this.material as THREE.MeshStandardMaterial;
+    const previous = material.onBeforeCompile;
+    material.onBeforeCompile = (shader, renderer) => {
+      previous?.call(material, shader, renderer);
+      Object.assign(shader.uniforms, this.eclipseUniforms);
+
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vEclipseNormal;')
+        .replace(
+          '#include <defaultnormal_vertex>',
+          '#include <defaultnormal_vertex>\nvEclipseNormal = normalize(mat3(modelMatrix) * objectNormal);',
+        );
+
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+           varying vec3 vEclipseNormal;
+           uniform vec3 uEclipseSunRel;
+           uniform float uEclipseSunRadius;
+           uniform vec3 uEclipseCasterRel;
+           uniform float uEclipseCasterRadius;
+           uniform float uEclipseStrength;
+
+           float eclipseCoverage() {
+             if (uEclipseStrength <= 0.0 || uEclipseCasterRadius <= 0.0) return 0.0;
+             vec3 p = normalize(vEclipseNormal);
+             vec3 toSun = uEclipseSunRel - p;
+             vec3 toCaster = uEclipseCasterRel - p;
+             float dSun = length(toSun);
+             float dCaster = length(toCaster);
+             if (dCaster >= dSun) return 0.0;
+             float rSun = asin(clamp(uEclipseSunRadius / dSun, 0.0, 1.0));
+             float rCaster = asin(clamp(uEclipseCasterRadius / dCaster, 0.0, 1.0));
+             float sep = acos(clamp(dot(toSun / dSun, toCaster / dCaster), -1.0, 1.0));
+             if (sep >= rSun + rCaster) return 0.0;
+             if (sep <= abs(rSun - rCaster)) {
+               float ratio = rCaster / rSun;
+               return clamp(ratio * ratio, 0.0, 1.0);
+             }
+             // Area of the lens shared by the two discs, over the Sun's area.
+             float a1 = acos(clamp((sep * sep + rSun * rSun - rCaster * rCaster) / (2.0 * sep * rSun), -1.0, 1.0));
+             float a2 = acos(clamp((sep * sep + rCaster * rCaster - rSun * rSun) / (2.0 * sep * rCaster), -1.0, 1.0));
+             float lens = rSun * rSun * (a1 - sin(2.0 * a1) * 0.5)
+                        + rCaster * rCaster * (a2 - sin(2.0 * a2) * 0.5);
+             return clamp(lens / (PI * rSun * rSun), 0.0, 1.0);
+           }`,
+        )
+        .replace(
+          '#include <output_fragment>',
+          `float eclipseShade = 1.0 - eclipseCoverage() * uEclipseStrength;
+           outgoingLight *= eclipseShade;
+           #include <output_fragment>`,
+        );
+    };
+    material.needsUpdate = true;
+  }
+
+  /**
+   * @param sunRelative Sun position relative to this body's centre, in body radii
+   * @param sunRadius Sun radius in this body's radii
+   * @param casterRelative shadow caster position relative to this body's centre
+   * @param casterRadius caster radius in this body's radii
+   */
+  setEclipseCaster(
+    sunRelative: THREE.Vector3,
+    sunRadius: number,
+    casterRelative: THREE.Vector3 | null,
+    casterRadius: number,
+  ): void {
+    const u = this.eclipseUniforms;
+    u.uEclipseSunRel.value.copy(sunRelative);
+    u.uEclipseSunRadius.value = sunRadius;
+    if (casterRelative) {
+      u.uEclipseCasterRel.value.copy(casterRelative);
+      u.uEclipseCasterRadius.value = casterRadius;
+      u.uEclipseStrength.value = 0.985;
+    } else {
+      u.uEclipseCasterRadius.value = 0;
+      u.uEclipseStrength.value = 0;
+    }
   }
 
   /** Swap in the procedurally generated surface once it has been built. */

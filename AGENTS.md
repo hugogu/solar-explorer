@@ -1,0 +1,38 @@
+# 项目约定与经验
+
+这个仓库是一个纯前端的 3D 太阳系科普站。以下是开发中踩过、值得记住的点。
+
+## 架构边界
+
+- `src/astro/` 是纯计算层：**不能** import three.js，也不能碰 DOM。这样才能在 Node 里直接跑测试。
+- 渲染层不做天文计算。所有位置与姿态由 `src/app/Simulation.ts` 产出，`src/render/` 只负责画。
+- 场景单位：1 单位 = 1000 km。黄道坐标 `(x, y, z)`（z 指向黄北极）映射到 three.js 的
+  `(x, z, -y)`，即 y 轴朝上。
+
+## 容易踩的坑
+
+- **自定义 ShaderMaterial 必须加对数深度缓冲的 chunk**。渲染器开了
+  `logarithmicDepthBuffer`，内置材质会自动处理，自己写的 shader 不加
+  `#include <logdepthbuf_pars_vertex>` / `<logdepthbuf_vertex>` /
+  `<logdepthbuf_pars_fragment>` / `<logdepthbuf_fragment>`，深度测试就会和内置材质对不上，
+  表现为星星穿透行星表面。
+- **启动流程不能依赖 `requestAnimationFrame`**。浏览器会暂停隐藏标签页的 rAF，
+  在后台标签打开页面会永远卡在加载界面。用 `src/app/schedule.ts` 里的
+  `nextFrame()` / `scheduleFrame()`，它们带 setTimeout 兜底。
+- **隐藏的标签页 `window.innerWidth` 可能是 0**，会误触发手机布局并让相机宽高比变成 NaN。
+  `layout()` 和 `resize()` 都要先判空。
+- **贴图经度对齐**：three.js `SphereGeometry` 的 u=0.5 对应局部 +X，等距圆柱投影的
+  经度 0 也在 u=0.5，所以 IAU 天体固连系只需要绕 X 轴转 90°，**不要**再加 180°。
+  验证方法：把相机放在日下点方向，读取画面中心像素——应当落在当时日下点的真实地貌上。
+- **大气辉光不能用 BackSide**。背面法线与视线夹角接近 180°，`1 - dot()` 在整个背面都等于 1，
+  会糊成一整片光斑。用 FrontSide 的稍大球壳，再乘以朝阳因子。
+- **相机取景要按新目标的半径夹取**。`frameBody()` 如果用上一次的 `minDistance` 夹取，
+  从太阳切到地球时会被卡在太阳的最小距离上，看起来像"点了没反应"。
+- three.js 材质构造参数显式传 `undefined` 会刷屏警告，要用条件赋值。
+
+## 精度约定
+
+改动星历相关代码后必须跑 `npm test`。测试对照的是公布值（Meeus 例题、二分二至时刻、
+天文年历的日出日落、已公布的日月食星表），不是快照，所以失败通常意味着真的算错了。
+
+近似之处必须在界面上如实标注，不要让用户误以为所有天体的相位都是真实的。

@@ -10,6 +10,7 @@ import type { Simulation } from '../app/Simulation';
 import { ICONS, clear, el, icon } from './dom';
 import { BodyList } from './panels/BodyList';
 import { EventsPanel } from './panels/EventsPanel';
+import type { Eclipse } from '../astro/eclipse';
 import { InfoPanel } from './panels/InfoPanel';
 import { SettingsPanel } from './panels/SettingsPanel';
 import { TimePanel } from './panels/TimePanel';
@@ -46,12 +47,16 @@ export class Ui {
     container: HTMLElement,
     private readonly state: AppState,
     getSimulation: () => Simulation,
-    callbacks: { onSurfaceView: (bodyId: string) => void; onExitSurface: () => void },
+    callbacks: {
+      onSurfaceView: (bodyId: string) => void;
+      onExitSurface: () => void;
+      onWatchEclipse: (eclipse: Eclipse) => void;
+    },
   ) {
     this.timePanel = new TimePanel(state);
     this.bodyList = new BodyList(state);
     this.infoPanel = new InfoPanel(state, getSimulation, callbacks.onSurfaceView);
-    this.eventsPanel = new EventsPanel(state);
+    this.eventsPanel = new EventsPanel(state, { onWatchEclipse: callbacks.onWatchEclipse });
     this.settingsPanel = new SettingsPanel(state, callbacks.onExitSurface);
     this.surfaceHud = new SurfaceHud(state, getSimulation, callbacks.onExitSurface);
 
@@ -132,6 +137,7 @@ export class Ui {
   }
 
   private layout(): void {
+    if (window.innerWidth < 1) return;
     const compact = window.innerWidth < 900;
     if (compact !== this.compact) {
       this.compact = compact;

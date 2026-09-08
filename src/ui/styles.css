@@ -236,7 +236,7 @@ input[type='range']::-moz-range-thumb {
 }
 .time-readout { display: flex; flex-direction: column; gap: 2px; min-width: 168px; }
 .time-main { display: flex; align-items: baseline; gap: 8px; }
-.time-date { font-size: 12px; color: var(--muted); }
+.time-date { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .time-clock { font-size: 17px; font-family: var(--mono); letter-spacing: 0.02em; }
 .time-zone { font-size: 10px; color: var(--dim); }
 .time-controls { display: flex; gap: 6px; align-items: center; }
@@ -527,7 +527,7 @@ input[type='range']::-moz-range-thumb {
   gap: 8px;
 }
 .ui-root.is-compact .dock { display: none; }
-.ui-root.is-compact .brand-name { display: none; }
+.ui-root.is-compact .brand { display: none; }
 .ui-root.is-compact .topbar { gap: 8px; }
 .ui-root.is-compact .time-panel {
   grid-template-columns: 1fr auto;
@@ -536,6 +536,12 @@ input[type='range']::-moz-range-thumb {
   padding: 8px 10px;
 }
 .ui-root.is-compact .time-readout { grid-area: readout; min-width: 0; }
+.ui-root.is-compact .time-main { flex-direction: column; align-items: flex-start; gap: 0; }
+.ui-root.is-compact .time-clock { font-size: 15px; }
+.ui-root.is-compact .time-date { font-size: 11px; }
+.ui-root.is-compact .time-zone { font-size: 9px; }
+.ui-root.is-compact .btn { padding: 6px 8px; min-height: 30px; }
+.ui-root.is-compact .time-controls { gap: 4px; }
 .ui-root.is-compact .time-controls { grid-area: controls; }
 .ui-root.is-compact .time-speed-row { grid-area: speed; }
 .ui-root.is-compact .time-jump { display: none; }

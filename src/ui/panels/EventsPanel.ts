@@ -20,6 +20,11 @@ const LUNAR_TYPE_NAMES: Record<string, string> = {
   total: '月全食', partial: '月偏食', penumbral: '半影月食',
 };
 
+export interface EventsCallbacks {
+  /** set the scene up to actually watch an eclipse happen */
+  onWatchEclipse: (eclipse: Eclipse) => void;
+}
+
 export class EventsPanel {
   readonly element: HTMLElement;
   private readonly dayEl: HTMLElement;
@@ -30,7 +35,10 @@ export class EventsPanel {
   private cachedDayKey = '';
   private cachedEclipseKey = '';
 
-  constructor(private readonly state: AppState) {
+  constructor(
+    private readonly state: AppState,
+    private readonly callbacks: EventsCallbacks,
+  ) {
     this.dayEl = el('div', { class: 'events-day' });
     this.eclipseEl = el('div', { class: 'events-eclipse' });
 
@@ -216,7 +224,7 @@ export class EventsPanel {
       const solar = eclipse as SolarEclipse;
       const local = localSolarCircumstances(solar, observer);
       lines.push(el('div', { class: 'eclipse-line' },
-        `食甚（世界时最大）：${formatDate(solar.jdMax, offset)} ${formatClock(solar.jdMax, offset)}`));
+        `全球食甚：${formatDate(solar.jdMax, offset)} ${formatClock(solar.jdMax, offset)}（${formatOffset(offset)}）`));
       lines.push(el('div', { class: 'eclipse-line' },
         `食甚点：${solar.greatestAt.latitude.toFixed(1)}°, ${solar.greatestAt.longitude.toFixed(1)}° · γ=${solar.gamma.toFixed(3)}`));
       if (local.visible && local.magnitude > 0) {
@@ -231,13 +239,15 @@ export class EventsPanel {
         }
       } else {
         lines.push(el('div', { class: 'eclipse-local' },
-          local.magnitude > 0 ? `${observer.name}不可见（食甚时太阳在地平线下）` : `${observer.name}不可见`));
+          local.magnitude > 0
+            ? `${observer.name}不可见：食甚时太阳在地平线下 ${Math.abs(local.sunAltitude).toFixed(0)}°`
+            : `${observer.name}不可见：此地不在食带范围内`));
       }
     } else {
       const lunar = eclipse as LunarEclipse;
       const visibility = lunarEclipseVisible(lunar, observer);
       lines.push(el('div', { class: 'eclipse-line' },
-        `食甚：${formatDate(lunar.jdMax, offset)} ${formatClock(lunar.jdMax, offset)}`));
+        `食甚：${formatDate(lunar.jdMax, offset)} ${formatClock(lunar.jdMax, offset)}（${formatOffset(offset)}）`));
       if (lunar.umbralMagnitude > 0) {
         lines.push(el('div', { class: 'eclipse-line' },
           `本影食分 ${lunar.umbralMagnitude.toFixed(3)}${lunar.semiDurationPartial ? ` · 偏食持续 ${formatDurationDays((lunar.semiDurationPartial * 2) / 1440)}` : ''}`));
@@ -260,13 +270,9 @@ export class EventsPanel {
         el('span', { class: 'eclipse-date' }, formatDate(eclipse.jdMax, offset)),
         el('button', {
           class: 'chip chip-small',
-          onclick: () => {
-            this.state.time.jd = eclipse.jdMax;
-            this.state.time.playing = false;
-            this.state.select(isSolar ? 'earth' : 'moon');
-            this.state.emit('time');
-          },
-        }, '跳转'),
+          title: '把时间调到食甚并把镜头对准影子',
+          onclick: () => this.callbacks.onWatchEclipse(eclipse),
+        }, '在 3D 中观看'),
       ),
       ...lines,
     );
