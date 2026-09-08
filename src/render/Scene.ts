@@ -187,6 +187,11 @@ export class Scene {
     const sunPosition = this.scaledPositions.get('sun') as THREE.Vector3;
     this.sunLight.position.copy(sunPosition);
 
+    // The camera moves before anything that depends on where it is: marker
+    // sizing, occlusion and label placement all read the pose set here, so they
+    // describe this frame rather than the last one.
+    this.updateCamera(simulation, settings, dt);
+
     const sunDirection = new THREE.Vector3();
     const occluder = this.currentOccluder(settings);
     for (const state of simulation.list()) {
@@ -207,7 +212,6 @@ export class Scene {
     }
 
     this.updateEclipseShadows(simulation);
-    this.updateCamera(simulation, settings, dt);
     this.updateLocationMarker(simulation, settings);
     this.belts.update(jdToTT(simulation.jd) - J2000, scale, this.beltPointScale());
     this.belts.setAllVisible(settings.showBelts);

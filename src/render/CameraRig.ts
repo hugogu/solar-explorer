@@ -103,6 +103,25 @@ export class CameraRig {
       this.camera.near = near;
       this.camera.updateProjectionMatrix();
     }
+    this.place(dt);
+    this.commit();
+  }
+
+  /**
+   * Publish the camera's new pose.
+   *
+   * three.js only refreshes `matrixWorldInverse` inside `render()`, so anything
+   * that projects a world position before the frame is drawn - labels, the
+   * location marker, click picking - would otherwise be working from the
+   * previous frame's camera. While dragging that shows up as labels lagging
+   * behind their bodies and snapping back when the motion stops.
+   */
+  private commit(): void {
+    this.camera.updateMatrixWorld();
+    this.camera.matrixWorldInverse.copy(this.camera.matrixWorld).invert();
+  }
+
+  private place(dt: number): void {
     if (this.mode === 'surface') {
       const az = (this.surfaceAzimuth * Math.PI) / 180;
       const alt = (this.surfaceAltitude * Math.PI) / 180;
