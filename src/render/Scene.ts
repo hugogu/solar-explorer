@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import type { BodyState, Simulation } from '../app/Simulation';
-import { ALL_BODIES, BodyInfo } from '../data';
+import { ALL_BODIES, BODY_BY_ID, BodyInfo, BodyKind } from '../data';
 import { BodyView, PhotoMaps } from './Bodies';
 import { Belts } from './Belts';
 import { CameraRig } from './CameraRig';
@@ -14,6 +14,7 @@ import {
   OrbitLine, applyOrbitScale, createHeliocentricOrbits, createLunarOrbit, createSatelliteOrbits,
 } from './Orbits';
 import { Sky } from './Sky';
+import { LocationMarker } from './LocationMarker';
 import { AtmosphereSky, SKY_PROFILES } from './AtmosphereSky';
 import { AU_UNITS, ScaleSettings, scaleHeliocentric } from './frame';
 import { AU_KM } from '../astro/planets';
@@ -32,6 +33,8 @@ export interface SceneOptions {
 
 export interface ViewSettings {
   scale: ScaleSettings;
+  /** which classes of body are drawn at all */
+  visibleKinds: Record<BodyKind, boolean>;
   showOrbits: boolean;
   showMoonOrbits: boolean;
   showLabels: boolean;
@@ -47,6 +50,13 @@ export interface ViewSettings {
 }
 
 const SUN_RADIUS_KM = 696340;
+const LOCATION_LABEL_ID = '__location';
+
+interface Occluder {
+  direction: THREE.Vector3;
+  distance: number;
+  angularRadius: number;
+}
 
 const QUALITY_PRESETS = {
   low: { textureSize: 512, segments: 32, starCount: 5000, milkyWay: 384, pixelRatio: 1 },
@@ -62,6 +72,12 @@ export class Scene {
   private readonly sky: Sky;
   private readonly belts = new Belts();
   private readonly atmosphereSky = new AtmosphereSky();
+  readonly locationMarker = new LocationMarker();
+  /**
+   * While set, the camera keeps the marked place facing the viewer as the body
+   * turns. Rotating by hand releases it, so the lock never fights the user.
+   */
+  lockCameraToMarker = false;
   private readonly labels: Labels;
   private readonly orbits: OrbitLine[] = [];
   private readonly orbitById = new Map<string, OrbitLine>();
@@ -97,6 +113,7 @@ export class Scene {
     this.scene.add(this.sky.group);
     this.scene.add(this.belts.group);
     this.scene.add(this.atmosphereSky.mesh);
+    this.scene.add(this.locationMarker.group);
 
     // The Sun lights everything; falloff is compressed in the material tint
     // rather than the light itself, so distant planets stay legible.
@@ -171,19 +188,27 @@ export class Scene {
     this.sunLight.position.copy(sunPosition);
 
     const sunDirection = new THREE.Vector3();
+    const occluder = this.currentOccluder(settings);
     for (const state of simulation.list()) {
       const view = this.views.get(state.id);
       const position = this.scaledPositions.get(state.id);
       if (!view || !position) continue;
+      const kindVisible = settings.visibleKinds[state.info.kind] !== false;
+      view.group.visible = kindVisible;
+      if (!kindVisible) continue;
       sunDirection.copy(sunPosition).sub(position).normalize();
       view.update(state, scale, position, sunDirection);
-      view.group.visible = true;
       const cameraDistance = this.rig.camera.position.distanceTo(position);
-      view.updateMarker(this.minimumVisibleSize(cameraDistance), view.baseRadius * scale.bodyScale * 2);
+      view.updateMarker(
+        this.minimumVisibleSize(cameraDistance),
+        view.baseRadius * scale.bodyScale * 2,
+        state.id !== settings.focus && this.isOccluded(position, occluder),
+      );
     }
 
     this.updateEclipseShadows(simulation);
     this.updateCamera(simulation, settings, dt);
+    this.updateLocationMarker(simulation, settings);
     this.belts.update(jdToTT(simulation.jd) - J2000, scale, this.beltPointScale());
     this.belts.setAllVisible(settings.showBelts);
     this.belts.setVisible('oort', settings.showOort);
@@ -240,6 +265,32 @@ export class Scene {
         view.setEclipseCaster(sunRel, sunRadius, null, 0);
       }
     }
+  }
+
+  /** Put the marked place on the surface of its body, at a constant screen size. */
+  private updateLocationMarker(simulation: Simulation, settings: ViewSettings): void {
+    const marker = this.locationMarker;
+    const id = marker.bodyId;
+    if (!id || settings.surface) {
+      marker.group.visible = false;
+      return;
+    }
+    const state = simulation.get(id);
+    const view = this.views.get(id);
+    const position = this.scaledPositions.get(id);
+    if (!state || !view || !position || settings.visibleKinds[state.info.kind] === false) {
+      marker.group.visible = false;
+      return;
+    }
+    const radius = view.baseRadius * settings.scale.bodyScale;
+    const frame = surfaceFrame(
+      state.raDec0[0], state.raDec0[1], state.meridian,
+      marker.latitude, marker.longitude, radius,
+    );
+    const surfacePosition = frame.position.clone().add(position);
+    const cameraPosition = this.rig.camera.position;
+    const distance = cameraPosition.distanceTo(surfacePosition);
+    marker.update(surfacePosition, frame.up, cameraPosition, this.minimumVisibleSize(distance) * 3.2);
   }
 
   /** Bodies close enough to this one to plausibly eclipse its sunlight. */
@@ -301,6 +352,26 @@ export class Scene {
       this.atmosphereSky.setVisible(false);
       this.sky.setNightFactor(1);
       this.rig.mode = 'orbit';
+      if (this.rig.userRotated) {
+        this.rig.userRotated = false;
+        this.lockCameraToMarker = false;
+      }
+      const marker = this.locationMarker;
+      if (this.lockCameraToMarker && marker.bodyId) {
+        // Turn with the body so the marked place stays facing the viewer. The
+        // target angle sweeps a full turn per rotation, far faster than the
+        // damping could follow, so the orientation is snapped rather than eased.
+        const markerState = simulation.get(marker.bodyId);
+        if (markerState) {
+          const markerFrame = surfaceFrame(
+            markerState.raDec0[0], markerState.raDec0[1], markerState.meridian,
+            marker.latitude, marker.longitude, 1,
+          );
+          this.rig.azimuth = Math.atan2(markerFrame.up.x, markerFrame.up.z);
+          this.rig.polar = Math.acos(Math.max(-1, Math.min(1, markerFrame.up.y)));
+          this.rig.snapOrientation();
+        }
+      }
       const focus = settings.focus ? this.scaledPositions.get(settings.focus) : undefined;
       this.rig.target.copy(focus ?? new THREE.Vector3());
       const view = settings.focus ? this.views.get(settings.focus) : undefined;
@@ -314,7 +385,9 @@ export class Scene {
     for (const orbit of this.orbits) {
       const material = orbit.line.material as THREE.LineBasicMaterial;
       const isMoon = orbit.parentId !== undefined;
+      const info = BODY_BY_ID.get(orbit.id);
       let visible = isMoon ? settings.showMoonOrbits : settings.showOrbits;
+      if (info && settings.visibleKinds[info.kind] === false) visible = false;
       if (settings.surface) visible = false;
       if (isMoon && visible) {
         // Only draw moon paths when their planet is actually being looked at.
@@ -340,6 +413,7 @@ export class Scene {
     }
     this.labels.beginFrame();
     const cameraPosition = this.rig.camera.position;
+    const occluder = this.currentOccluder(settings);
 
     // Offer labels most-important first so collisions drop the least useful.
     const ordered = simulation.list().slice().sort((a, b) => {
@@ -352,6 +426,10 @@ export class Scene {
       const position = this.scaledPositions.get(state.id);
       const view = this.views.get(state.id);
       if (!position || !view) continue;
+      if (settings.visibleKinds[state.info.kind] === false) {
+        this.labels.hide(state.id);
+        continue;
+      }
       const distance = cameraPosition.distanceTo(position);
       const radius = view.baseRadius * settings.scale.bodyScale;
       const apparentSize = radius / distance;
@@ -373,6 +451,7 @@ export class Scene {
       }
       // A label sitting inside the body it names is just noise.
       if (apparentSize > 0.6) show = false;
+      if (show && state.id !== settings.focus && this.isOccluded(position, occluder)) show = false;
       if (settings.surface && state.id === settings.surface.bodyId) show = false;
       if (show) {
         this.labels.place(
@@ -383,6 +462,57 @@ export class Scene {
         this.labels.hide(state.id);
       }
     }
+
+    const marker = this.locationMarker;
+    if (marker.bodyId && marker.group.visible) {
+      this.labels.ensure({
+        id: LOCATION_LABEL_ID,
+        text: marker.label,
+        kind: 'place',
+        onClick: () => {},
+      });
+      this.labels.place(
+        LOCATION_LABEL_ID, marker.anchor, this.rig.camera, this.width, this.height, true,
+      );
+    } else {
+      this.labels.hide(LOCATION_LABEL_ID);
+    }
+  }
+
+  /**
+   * True when a body is hidden behind the one currently being looked at.
+   *
+   * Without this, Neptune's label happily floats across the middle of the Earth
+   * whenever the two line up, which reads as a bug even though the geometry is
+   * right.
+   */
+  private isOccluded(position: THREE.Vector3, occluder: Occluder | null): boolean {
+    if (!occluder) return false;
+    const camera = this.rig.camera.position;
+    const toBody = position.clone().sub(camera);
+    const distance = toBody.length();
+    if (distance <= occluder.distance) return false;
+    const angle = toBody.normalize().angleTo(occluder.direction);
+    return angle < occluder.angularRadius;
+  }
+
+  /** The body the camera is looking at, as a blocking disc. */
+  private currentOccluder(settings: ViewSettings): Occluder | null {
+    const id = settings.focus;
+    if (!id || settings.surface) return null;
+    const position = this.scaledPositions.get(id);
+    const view = this.views.get(id);
+    if (!position || !view) return null;
+    const camera = this.rig.camera.position;
+    const toBody = position.clone().sub(camera);
+    const distance = toBody.length();
+    const radius = view.baseRadius * settings.scale.bodyScale;
+    if (distance <= radius) return null;
+    return {
+      direction: toBody.normalize(),
+      distance,
+      angularRadius: Math.asin(Math.min(1, radius / distance)),
+    };
   }
 
   /** World-space diameter that corresponds to a few pixels on screen. */
@@ -420,7 +550,7 @@ export class Scene {
   }
 
   /** Nearest body to a screen point, within a tolerance in pixels. */
-  pick(clientX: number, clientY: number, tolerance = 44): string | null {
+  pick(clientX: number, clientY: number, tolerance = 44, visibleKinds?: Record<BodyKind, boolean>): string | null {
     const rect = this.renderer.domElement.getBoundingClientRect();
     const x = clientX - rect.left;
     const y = clientY - rect.top;
@@ -428,6 +558,8 @@ export class Scene {
     let bestDistance = tolerance;
     const projected = new THREE.Vector3();
     for (const [id, position] of this.scaledPositions) {
+      const info = BODY_BY_ID.get(id);
+      if (visibleKinds && info && visibleKinds[info.kind] === false) continue;
       projected.copy(position).project(this.rig.camera);
       if (projected.z > 1) continue;
       const sx = (projected.x * 0.5 + 0.5) * this.width;

@@ -1,13 +1,22 @@
 /** Searchable navigator over the whole catalogue. */
-import { ALL_BODIES, BodyInfo, moonsOf } from '../../data';
+import { ALL_BODIES, BodyInfo, BodyKind, moonsOf } from '../../data';
 import { AppState } from '../../app/AppState';
 import { ICONS, clear, el, icon } from '../dom';
 
-const GROUPS: Array<{ title: string; match: (b: BodyInfo) => boolean }> = [
-  { title: '恒星', match: (b) => b.kind === 'star' },
-  { title: '行星', match: (b) => b.kind === 'planet' },
-  { title: '矮行星', match: (b) => b.kind === 'dwarf' },
-  { title: '彗星', match: (b) => b.kind === 'comet' },
+interface Group {
+  title: string;
+  kind: BodyKind;
+  /** moons are listed nested under their planet rather than as rows here */
+  nested?: boolean;
+  hint?: string;
+}
+
+const GROUPS: Group[] = [
+  { title: '恒星', kind: 'star' },
+  { title: '行星', kind: 'planet' },
+  { title: '卫星', kind: 'moon', nested: true, hint: '在行星下展开' },
+  { title: '矮行星', kind: 'dwarf' },
+  { title: '彗星', kind: 'comet' },
 ];
 
 export class BodyList {
@@ -36,6 +45,7 @@ export class BodyList {
     );
     this.render();
     state.on('selection', () => this.markSelection());
+    state.on('settings', () => this.render());
   }
 
   private render(): void {
@@ -51,9 +61,10 @@ export class BodyList {
     }
 
     for (const group of GROUPS) {
-      const bodies = ALL_BODIES.filter(group.match);
+      const bodies = ALL_BODIES.filter((b) => b.kind === group.kind);
       if (bodies.length === 0) continue;
-      this.listEl.appendChild(el('div', { class: 'list-group' }, group.title));
+      this.listEl.appendChild(this.groupHeader(group, bodies.length));
+      if (group.nested) continue;
       for (const body of bodies) {
         const moons = moonsOf(body.id);
         this.listEl.appendChild(this.row(body, moons.length > 0));
@@ -63,6 +74,21 @@ export class BodyList {
       }
     }
     this.markSelection();
+  }
+
+  /** Group heading with a switch that hides the whole class from the scene. */
+  private groupHeader(group: Group, count: number): HTMLElement {
+    const input = el('input', { type: 'checkbox', 'aria-label': `显示${group.title}` });
+    input.checked = this.state.settings.visibleKinds[group.kind];
+    input.addEventListener('change', () => {
+      this.state.setKindVisible(group.kind, input.checked);
+      this.render();
+    });
+    return el('div', { class: 'list-group' },
+      el('span', { class: 'list-group-title' }, group.title),
+      el('span', { class: 'list-group-count' }, group.hint ?? String(count)),
+      el('label', { class: 'group-switch', title: `显示或隐藏${group.title}` }, input, el('span', {})),
+    );
   }
 
   private matchesQuery(body: BodyInfo): boolean {
@@ -93,10 +119,11 @@ export class BodyList {
       children.push(toggle);
     }
 
+    const hidden = !this.state.settings.visibleKinds[body.kind];
     const row = el(
       'button',
       {
-        class: `body-row${isChild ? ' is-child' : ''}`,
+        class: `body-row${isChild ? ' is-child' : ''}${hidden ? ' is-hidden-kind' : ''}`,
         'data-id': body.id,
         onclick: () => this.state.select(body.id),
       },

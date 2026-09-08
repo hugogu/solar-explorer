@@ -51,12 +51,16 @@ export class Ui {
       onSurfaceView: (bodyId: string) => void;
       onExitSurface: () => void;
       onWatchEclipse: (eclipse: Eclipse) => void;
+      onShowLocation: (bodyId: string) => void;
     },
   ) {
     this.timePanel = new TimePanel(state);
     this.bodyList = new BodyList(state);
     this.infoPanel = new InfoPanel(state, getSimulation, callbacks.onSurfaceView);
-    this.eventsPanel = new EventsPanel(state, { onWatchEclipse: callbacks.onWatchEclipse });
+    this.eventsPanel = new EventsPanel(state, {
+      onWatchEclipse: callbacks.onWatchEclipse,
+      onShowLocation: callbacks.onShowLocation,
+    });
     this.settingsPanel = new SettingsPanel(state, callbacks.onExitSurface);
     this.surfaceHud = new SurfaceHud(state, getSimulation, callbacks.onExitSurface);
 

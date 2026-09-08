@@ -46,6 +46,8 @@ export class CameraRig {
 
   /** 0 disables smoothing, 1 freezes the camera */
   damping = 0.12;
+  /** set whenever the viewer rotates by hand; consumers clear it */
+  userRotated = false;
 
   constructor(aspect: number) {
     this.camera = new THREE.PerspectiveCamera(55, aspect, ORBIT_NEAR, 1e9);
@@ -59,6 +61,7 @@ export class CameraRig {
   }
 
   rotate(deltaAzimuth: number, deltaPolar: number): void {
+    if (deltaAzimuth !== 0 || deltaPolar !== 0) this.userRotated = true;
     if (this.mode === 'surface') {
       this.surfaceAzimuth = (this.surfaceAzimuth - deltaAzimuth * 40 + 360) % 360;
       this.surfaceAltitude = clamp(this.surfaceAltitude + deltaPolar * 40, -85, 89);
@@ -136,6 +139,16 @@ export class CameraRig {
       this.smoothTarget.z + this.smoothDistance * sinPolar * Math.cos(this.smoothAzimuth),
     );
     this.camera.lookAt(this.smoothTarget);
+  }
+
+  /**
+   * Match the smoothed orientation to the requested one without touching the
+   * distance. Used while tracking a point on a spinning body, where the target
+   * angle changes far faster than the damping could follow.
+   */
+  snapOrientation(): void {
+    this.smoothAzimuth = this.azimuth;
+    this.smoothPolar = this.polar;
   }
 
   /** Jump the smoothed state to the requested one, for instant transitions. */

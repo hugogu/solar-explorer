@@ -123,10 +123,48 @@ export class InfoPanel {
     );
   }
 
+  /**
+   * One fact at a time in a shuffled order.
+   *
+   * The full list is a wall of text on a phone; a single card invites reading
+   * it, and shuffling means a second visit to the same body shows something
+   * different rather than always opening on the same line.
+   */
   private factList(info: BodyInfo): HTMLElement {
-    const list = el('ul', { class: 'fact-list' });
-    for (const fact of info.facts) list.appendChild(el('li', {}, fact));
-    return el('div', {}, el('h3', { class: 'info-h3' }, '你可能不知道'), list);
+    const order = shuffled(info.facts.length);
+    let cursor = 0;
+    const text = el('p', { class: 'fact-text' }, info.facts[order[0]]);
+    const dots = el('div', { class: 'fact-dots' });
+    const counter = el('span', { class: 'fact-counter' });
+
+    const paint = () => {
+      text.textContent = info.facts[order[cursor]];
+      counter.textContent = `${cursor + 1} / ${info.facts.length}`;
+      dots.replaceChildren(
+        ...info.facts.map((_, i) =>
+          el('span', { class: `fact-dot${i === cursor ? ' is-active' : ''}` })),
+      );
+    };
+
+    const next = el('button', {
+      class: 'chip',
+      onclick: () => {
+        cursor = (cursor + 1) % info.facts.length;
+        text.classList.remove('is-fresh');
+        // Restart the fade so the change is noticeable.
+        void text.offsetWidth;
+        text.classList.add('is-fresh');
+        paint();
+      },
+    }, '换一条');
+
+    paint();
+    text.classList.add('is-fresh');
+    return el('div', { class: 'fact-card' },
+      el('h3', { class: 'info-h3' }, '你可能不知道'),
+      text,
+      el('div', { class: 'fact-foot' }, dots, counter, next),
+    );
   }
 
   private physicalTable(info: BodyInfo): HTMLElement {
@@ -208,6 +246,16 @@ export class InfoPanel {
       ));
     }
   }
+}
+
+/** Indices 0..n-1 in a random order. */
+function shuffled(n: number): number[] {
+  const order = Array.from({ length: n }, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
 }
 
 function table(rows: Array<[string, string]>): HTMLElement {

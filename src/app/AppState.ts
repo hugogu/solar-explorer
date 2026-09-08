@@ -1,5 +1,6 @@
 /** Application state shared by the renderer and the UI, with a tiny event bus. */
 import type { Observer } from '../astro/coords';
+import { BODY_BY_ID, type BodyKind } from '../data';
 import type { ViewSettings } from '../render/Scene';
 import { COMPACT_SCALE, REAL_SCALE } from '../render/frame';
 import { TimeController } from './TimeController';
@@ -42,6 +43,7 @@ export class AppState {
   observer: NamedObserver = { ...PRESET_LOCATIONS[0] };
   settings: ViewSettings = {
     scale: { ...COMPACT_SCALE },
+    visibleKinds: { star: true, planet: true, dwarf: true, moon: true, comet: true },
     showOrbits: true,
     showMoonOrbits: true,
     showLabels: true,
@@ -55,6 +57,11 @@ export class AppState {
   };
   /** true while the compact layout (phones) is active */
   compact = false;
+  /**
+   * Where to stand on bodies other than the Earth. The Earth uses `observer`,
+   * which also carries a name and a time zone.
+   */
+  otherSurfacePoint = { latitude: 0, longitude: 0 };
 
   private readonly listeners = new Map<AppEvent, Set<() => void>>();
 
@@ -89,5 +96,18 @@ export class AppState {
   setObserver(observer: NamedObserver): void {
     this.observer = observer;
     this.emit('observer');
+  }
+
+  /** The surface point used for a given body's local sky. */
+  surfacePointFor(bodyId: string): { latitude: number; longitude: number } {
+    return bodyId === 'earth' ? this.observer : this.otherSurfacePoint;
+  }
+
+  setKindVisible(kind: BodyKind, visible: boolean): void {
+    this.settings.visibleKinds[kind] = visible;
+    // Never leave the selection pointing at something that is now hidden.
+    const selected = this.settings.selected ? BODY_BY_ID.get(this.settings.selected) : undefined;
+    if (selected && !visible && selected.kind === kind) this.settings.selected = null;
+    this.emit('settings');
   }
 }

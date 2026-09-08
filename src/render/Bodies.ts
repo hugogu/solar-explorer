@@ -261,10 +261,11 @@ export class BodyView {
   /**
    * @param worldSize diameter, in scene units, that renders as the minimum
    *   readable dot at the body's current distance
+   * @param occluded true when something nearer is in the way
    */
-  updateMarker(worldSize: number, bodyWorldSize: number): void {
+  updateMarker(worldSize: number, bodyWorldSize: number, occluded = false): void {
     if (!this.marker) return;
-    const visible = bodyWorldSize < worldSize;
+    const visible = bodyWorldSize < worldSize && !occluded;
     this.marker.visible = visible;
     if (!visible) return;
     this.marker.scale.setScalar(worldSize * 2.6);

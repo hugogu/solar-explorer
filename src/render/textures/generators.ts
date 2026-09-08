@@ -433,6 +433,41 @@ export function generateRingTexture(
   return tex;
 }
 
+/** A target ring with a centre dot, used to mark a place on a globe. */
+export function locationRingSprite(color = '#7cc4ff', size = 128): THREE.Texture {
+  const canvas = makeCanvas(size, size);
+  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+  const half = size / 2;
+  ctx.clearRect(0, 0, size, size);
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = size * 0.045;
+  ctx.globalAlpha = 0.95;
+  ctx.beginPath();
+  ctx.arc(half, half, size * 0.34, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 0.35;
+  ctx.beginPath();
+  ctx.arc(half, half, size * 0.46, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
+  ctx.arc(half, half, size * 0.09, 0, Math.PI * 2);
+  ctx.fill();
+  // Cross hairs make the exact point unambiguous.
+  ctx.globalAlpha = 0.7;
+  ctx.lineWidth = size * 0.028;
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as Array<[number, number]>) {
+    ctx.beginPath();
+    ctx.moveTo(half + dx * size * 0.2, half + dy * size * 0.2);
+    ctx.lineTo(half + dx * size * 0.3, half + dy * size * 0.3);
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 /** A soft radial sprite used for glows, coronas and comet comae. */
 export function radialSprite(color: string, size = 256, power = 2.4): THREE.Texture {
   const canvas = makeCanvas(size, size);

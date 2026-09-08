@@ -124,10 +124,45 @@ async function boot(): Promise<void> {
     state.emit('settings');
   };
 
+  /**
+   * Mark a place on a body and swing the camera round so you can see it.
+   * Without this, picking a city changes the numbers in the panel but nothing
+   * on screen, which leaves you guessing where on the globe it actually is.
+   */
+  const showLocation = (bodyId: string) => {
+    const point = state.surfacePointFor(bodyId);
+    const name = bodyId === 'earth'
+      ? state.observer.name
+      : `${point.latitude.toFixed(1)}°, ${point.longitude.toFixed(1)}°`;
+    scene.locationMarker.set(bodyId, point.latitude, point.longitude, name);
+    if (state.settings.surface) return;
+    scene.lockCameraToMarker = true;
+
+    state.select(bodyId);
+    simulation.update(state.time.jd);
+    scene.update(simulation, state.settings, 0.016);
+    const body = simulation.get(bodyId);
+    const view = scene.views.get(bodyId);
+    if (!body || !view) return;
+
+    // Look straight down on the marked point from a few radii out.
+    const frame = surfaceFrame(
+      body.raDec0[0], body.raDec0[1], body.meridian,
+      point.latitude, point.longitude, 1,
+    );
+    const rig = scene.rig;
+    rig.azimuth = Math.atan2(frame.up.x, frame.up.z);
+    rig.polar = Math.acos(Math.max(-1, Math.min(1, frame.up.y)));
+    rig.frameBody(view.baseRadius * state.settings.scale.bodyScale, 3.4);
+    rig.userRotated = false;
+    state.emit('settings');
+  };
+
   const ui = new Ui(uiContainer, state, () => simulation, {
     onSurfaceView: enterSurface,
     onExitSurface: exitSurface,
     onWatchEclipse: watchEclipse,
+    onShowLocation: showLocation,
   });
 
   state.on('observer', () => {
@@ -140,6 +175,8 @@ async function boot(): Promise<void> {
     }
   });
   state.on('selection', () => {
+    // Looking at something else means the marked place is no longer the subject.
+    if (state.settings.selected !== scene.locationMarker.bodyId) scene.lockCameraToMarker = false;
     const view = scene.views.get(state.settings.selected ?? '');
     if (view && !state.settings.surface) {
       scene.rig.frameBody(view.baseRadius * state.settings.scale.bodyScale, 7);
@@ -148,7 +185,7 @@ async function boot(): Promise<void> {
 
   new Controls(canvas, scene.rig, {
     onSelect: (x, y) => {
-      const id = scene.pick(x, y);
+      const id = scene.pick(x, y, 44, state.settings.visibleKinds);
       if (id) state.select(id);
     },
     onCommand: (key) => handleKey(key),
