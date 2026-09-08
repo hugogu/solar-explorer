@@ -44,6 +44,32 @@ describe('solar eclipse tracks', () => {
     });
   }
 
+  it('tracks annular eclipses, where the Sun is never fully covered', () => {
+    // The central phase used to be detected by coverage reaching 1, which an
+    // annular eclipse never does: the Moon is too small and leaves a ring, so
+    // those tracks came out with zero width and no duration at all.
+    const annulars: Array<[string, number, number]> = [
+      ['2027-02-06', 253, 471],
+      ['2028-01-26', 323, 631],
+    ];
+    for (const [date, width, duration] of annulars) {
+      const eclipse = solarEclipseOn(date);
+      expect(eclipse.type, date).toBe('annular');
+      const path = solarEclipsePath(eclipse, 4);
+      expect(path.centralStart, date).toBeDefined();
+      expect(path.maxWidthKm, date).toBeGreaterThan(0);
+      expect(Math.abs(path.maxDurationSeconds / duration - 1), date).toBeLessThan(0.05);
+      expect(Math.abs(path.maxWidthKm / width - 1), date).toBeLessThan(0.35);
+
+      // The ring means coverage stops short of 1 even at the centre line.
+      const marker = shadowPositionAt(eclipse.jdMax);
+      expect(marker.central, date).toBe(true);
+      expect(marker.annular, date).toBe(true);
+      expect(marker.coverage, date).toBeGreaterThan(0.8);
+      expect(marker.coverage, date).toBeLessThan(1);
+    }
+  });
+
   it('gets the duration right for a grazing eclipse too', () => {
     // 2026-08-12 has gamma near 0.9; the umbra hits at a shallow angle, so
     // width over speed would badly overestimate how long totality lasts.
@@ -126,6 +152,8 @@ describe('solar eclipse tracks', () => {
     expect(Math.abs(now!.latitude - 25.5)).toBeLessThan(1.5);
     expect(Math.abs(now!.longitude - 33.2)).toBeLessThan(1.5);
     expect(now!.coverage).toBeGreaterThan(0.999);
+    expect(now!.central).toBe(true);
+    expect(now!.annular).toBe(false);
   });
 
   it('draws a penumbra outline that everyone inside can see the eclipse from', () => {

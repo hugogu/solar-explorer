@@ -19,15 +19,7 @@ import { jdToTT, lmst } from './time';
 import { EARTH_RADIUS_AU, EARTH_RADIUS_KM, SolarEclipse, discCoverage } from './eclipse';
 
 const AU_KM = 149597870.7;
-/**
- * How completely the Sun must be hidden to count as totality.
- *
- * It has to be this close to 1: coverage approaches unity smoothly as the last
- * sliver of photosphere closes, so a looser test like 0.999 sits appreciably
- * outside the true umbral edge and stretches both the measured width and the
- * measured duration by about ten per cent.
- */
-const TOTALITY_COVERAGE = 1 - 1e-6;
+
 const SUN_RADIUS_KM = 696000;
 const MOON_RADIUS_KM = 1737.4;
 /** Flattening term of the reference ellipsoid, as used for observer positions. */
@@ -156,8 +148,17 @@ function toGeographic(point: Vec3, gst: number): { latitude: number; longitude: 
 export interface GroundView {
   /** fraction of the Sun's disc covered, 0..1 */
   coverage: number;
-  /** ratio of the two apparent diameters; above 1 means the umbra reaches here */
+  /** ratio of the two apparent diameters; above 1 the Moon can cover the Sun */
   ratio: number;
+  /**
+   * True inside the central shadow, meaning one disc lies wholly within the
+   * other. That is the umbra of a total eclipse and the antumbra of an annular
+   * one - the ring of Sun left over in the annular case means coverage never
+   * reaches 1, so testing coverage would miss annular tracks completely.
+   */
+  central: boolean;
+  /** true when the ring is left showing, i.e. the Moon is too small to cover the Sun */
+  annular: boolean;
   /** Sun altitude above the horizon, degrees */
   sunAltitude: number;
 }
@@ -185,9 +186,12 @@ export function groundView(g: Geometry, observer: Vec3): GroundView {
   const rMoon = Math.asin(clamp(MOON_RADIUS_KM / (dMoon * AU_KM), -1, 1));
   const separation = Math.acos(clamp(dot(normalise(toSun), normalise(toMoon)), -1, 1));
   const up = normalise(observer);
+  const central = separation <= Math.abs(rSun - rMoon);
   return {
     coverage: discCoverage(rSun, rMoon, separation),
     ratio: rMoon / rSun,
+    central,
+    annular: central && rMoon < rSun,
     sunAltitude: Math.asin(clamp(dot(normalise(toSun), up), -1, 1)) * RAD,
   };
 }
@@ -276,11 +280,12 @@ function toLatLon(v: Vec3): { latitude: number; longitude: number } {
 }
 
 /**
- * Half-width of the umbra, measured across the track.
+ * Half-width of the central shadow, measured across the track.
  *
  * The offsets are taken in the Earth-fixed frame so "across the track" means
  * across the ground, then converted back to a real observer position for the
- * disc test. The edge of totality is where the Sun stops being fully covered.
+ * disc test. The edge is where the two discs stop being concentric enough for
+ * one to contain the other.
  */
 function umbraHalfWidthKm(
   g: Geometry,
@@ -293,38 +298,39 @@ function umbraHalfWidthKm(
   if (length(along) < 1e-12) return 0;
   const sideways = normalise(cross(b1, normalise(along)));
 
-  const at = (angle: number): number => {
+  const at = (angle: number): boolean => {
     const offset: Vec3 = [
       b1[0] * Math.cos(angle) + sideways[0] * Math.sin(angle),
       b1[1] * Math.cos(angle) + sideways[1] * Math.sin(angle),
       b1[2] * Math.cos(angle) + sideways[2] * Math.sin(angle),
     ];
     const geographic = toLatLon(offset);
-    return groundView(g, groundPoint(geographic.latitude, geographic.longitude, g.jd)).coverage;
+    return groundView(g, groundPoint(geographic.latitude, geographic.longitude, g.jd)).central;
   };
-  if (at(0) < TOTALITY_COVERAGE) return 0;
+  if (!at(0)) return 0;
   const bracket = 4 / RAD;
-  if (at(bracket) >= TOTALITY_COVERAGE) return bracket * EARTH_RADIUS_KM;
+  if (at(bracket)) return bracket * EARTH_RADIUS_KM;
   let lo = 0;
   let hi = bracket;
   for (let i = 0; i < 36; i++) {
     const mid = (lo + hi) / 2;
-    if (at(mid) >= TOTALITY_COVERAGE) lo = mid;
+    if (at(mid)) lo = mid;
     else hi = mid;
   }
   return ((lo + hi) / 2) * EARTH_RADIUS_KM;
 }
 
 /**
- * How long the Sun stays completely covered at a fixed place on the ground.
+ * How long the central phase lasts at a fixed place on the ground - totality
+ * for a total eclipse, annularity for an annular one.
  *
  * Measured directly rather than inferred from width divided by speed: for a
- * grazing eclipse the umbra's footprint is stretched along its track, so the
- * across-track width says very little about how long totality lasts.
+ * grazing eclipse the shadow's footprint is stretched along its track, so the
+ * across-track width says very little about how long the phase lasts.
  */
 function centralDurationSeconds(latitude: number, longitude: number, jdCentre: number): number {
   const covered = (jd: number) =>
-    groundView(geometryAt(jd), groundPoint(latitude, longitude, jd)).coverage >= TOTALITY_COVERAGE;
+    groundView(geometryAt(jd), groundPoint(latitude, longitude, jd)).central;
   if (!covered(jdCentre)) return 0;
   const limit = 8 / 1440; // no central phase runs longer than eight minutes either side
   const edge = (direction: 1 | -1): number => {
@@ -403,7 +409,7 @@ export function solarEclipsePath(eclipse: SolarEclipse, stepMinutes = 4): Eclips
       jd,
       latitude: geographic.latitude,
       longitude: geographic.longitude,
-      central: view.coverage >= TOTALITY_COVERAGE,
+      central: view.central,
       widthKm,
       durationSeconds: centralDurationSeconds(geographic.latitude, geographic.longitude, jd),
       sunAltitude: view.sunAltitude,
@@ -429,6 +435,9 @@ export function shadowPositionAt(jd: number): {
   onEarth: boolean;
   umbraWidthKm: number;
   coverage: number;
+  /** inside the umbra or antumbra, i.e. seeing a total or annular eclipse */
+  central: boolean;
+  annular: boolean;
 } {
   const g = geometryAt(jd);
   const { point, onEarth } = axisSurfacePoint(g);
@@ -441,11 +450,14 @@ export function shadowPositionAt(jd: number): {
       umbraWidthKm = 2 * umbraHalfWidthKm(g, geographic, toGeographic(nextPoint, ahead.gst));
     }
   }
+  const view = groundView(g, point);
   return {
     ...geographic,
     onEarth,
     umbraWidthKm,
-    coverage: groundView(g, point).coverage,
+    coverage: view.coverage,
+    central: onEarth && view.central,
+    annular: view.annular,
   };
 }
 

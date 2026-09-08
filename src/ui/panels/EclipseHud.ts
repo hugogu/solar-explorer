@@ -62,16 +62,21 @@ export class EclipseHud {
         `${TYPE_NAMES[eclipse.type] ?? '日食'}进行中 · ${formatDate(eclipse.jdMax, offset)}`;
     }
 
+    // An annular eclipse leaves a ring of Sun showing, so its central shadow is
+    // never "full" - the wording follows the kind of eclipse it actually is.
+    const annular = eclipse.type === 'annular' || current.annular;
+    const shadowName = annular ? '环影' : '本影';
     const rows: Array<[string, string]> = [];
-    if (current.onEarth && current.coverage > 0.999) {
-      rows.push(['本影位置', `${formatLatitude(current.latitude)} ${formatLongitude(current.longitude)}`]);
+    if (current.central) {
+      rows.push([`${shadowName}位置`, `${formatLatitude(current.latitude)} ${formatLongitude(current.longitude)}`]);
       rows.push(['当前食带宽度', `${current.umbraWidthKm.toFixed(0)} 公里`]);
+      rows.push(['该处食分', `遮挡 ${(current.coverage * 100).toFixed(1)}%`]);
     } else {
       rows.push(['影锥中心', `${formatLatitude(current.latitude)} ${formatLongitude(current.longitude)}`]);
       rows.push(['该处食分', `遮挡 ${(current.coverage * 100).toFixed(1)}%`]);
     }
     if (path.centralStart !== undefined) {
-      rows.push(['最长中心食', formatDuration(path.maxDurationSeconds)]);
+      rows.push([annular ? '最长环食' : '最长全食', formatDuration(path.maxDurationSeconds)]);
       rows.push(['食带最宽', `${path.maxWidthKm.toFixed(0)} 公里`]);
       rows.push(['中心食时段', `${formatClock(path.centralStart, offset)} — ${formatClock(path.centralEnd as number, offset)}`]);
     } else {
