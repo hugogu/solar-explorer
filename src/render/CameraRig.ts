@@ -15,6 +15,9 @@ const clamp = (x: number, lo: number, hi: number) => (x < lo ? lo : x > hi ? hi 
 const ORBIT_NEAR = 0.02;
 const SURFACE_NEAR = 1e-6;
 
+/** How long the camera takes to slide from one focus target to the next. */
+const TARGET_TRANSITION_SECONDS = 0.6;
+
 export class CameraRig {
   readonly camera: THREE.PerspectiveCamera;
   mode: CameraMode = 'orbit';
@@ -48,6 +51,10 @@ export class CameraRig {
   damping = 0.12;
   /** set whenever the viewer rotates by hand; consumers clear it */
   userRotated = false;
+
+  /** 0 while sliding to a new focus target, 1 once locked onto it */
+  private targetProgress = 1;
+  private readonly transitionFrom = new THREE.Vector3();
 
   constructor(aspect: number) {
     this.camera = new THREE.PerspectiveCamera(55, aspect, ORBIT_NEAR, 1e9);
@@ -85,6 +92,21 @@ export class CameraRig {
     this.surfaceUp.copy(up);
     this.surfaceNorth.copy(north);
     this.surfaceEast.copy(east);
+  }
+
+  /**
+   * Start sliding towards a newly chosen focus target.
+   *
+   * Between transitions the camera sits exactly on its target rather than
+   * easing towards it. An exponential filter never catches a target that keeps
+   * moving: it settles at a lag proportional to the target's speed, and since
+   * the filter constant depends on the frame time, that lag wobbles whenever
+   * the frame time does. On a fast mover like Mercury, or a comet followed
+   * from close range, that wobble is what makes the body appear to shake.
+   */
+  beginTargetTransition(): void {
+    this.transitionFrom.copy(this.smoothTarget);
+    this.targetProgress = 0;
   }
 
   /**
@@ -143,9 +165,16 @@ export class CameraRig {
       this.camera.fov = 55;
       this.camera.updateProjectionMatrix();
     }
-    // Frame-rate independent exponential smoothing.
+    // Frame-rate independent exponential smoothing for the parts the viewer
+    // drives; the target itself is followed exactly once settled.
     const k = 1 - Math.pow(this.damping, dt * 60);
-    this.smoothTarget.lerp(this.target, k);
+    if (this.targetProgress < 1) {
+      this.targetProgress = Math.min(1, this.targetProgress + dt / TARGET_TRANSITION_SECONDS);
+      const eased = this.targetProgress * this.targetProgress * (3 - 2 * this.targetProgress);
+      this.smoothTarget.lerpVectors(this.transitionFrom, this.target, eased);
+    } else {
+      this.smoothTarget.copy(this.target);
+    }
     this.smoothAzimuth += shortestAngle(this.smoothAzimuth, this.azimuth) * k;
     this.smoothPolar += (this.polar - this.smoothPolar) * k;
     this.smoothDistance *= Math.pow(this.distance / this.smoothDistance, k);
@@ -172,6 +201,7 @@ export class CameraRig {
 
   /** Jump the smoothed state to the requested one, for instant transitions. */
   snap(): void {
+    this.targetProgress = 1;
     this.smoothTarget.copy(this.target);
     this.smoothAzimuth = this.azimuth;
     this.smoothPolar = this.polar;

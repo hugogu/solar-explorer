@@ -84,6 +84,7 @@ export class Scene {
    * turns. Rotating by hand releases it, so the lock never fights the user.
    */
   lockCameraToMarker = false;
+  private focusedId: string | null = null;
   private readonly labels: Labels;
   private readonly orbits: OrbitLine[] = [];
   private readonly orbitById = new Map<string, OrbitLine>();
@@ -412,6 +413,10 @@ export class Scene {
         }
       }
       const focus = settings.focus ? this.scaledPositions.get(settings.focus) : undefined;
+      if (settings.focus !== this.focusedId) {
+        this.focusedId = settings.focus;
+        this.rig.beginTargetTransition();
+      }
       this.rig.target.copy(focus ?? new THREE.Vector3());
       const view = settings.focus ? this.views.get(settings.focus) : undefined;
       if (view) this.rig.minDistance = Math.max(0.05, view.baseRadius * settings.scale.bodyScale * 1.12);

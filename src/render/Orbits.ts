@@ -30,6 +30,19 @@ function makeLine(points: Vec3[], color: string, opacity: number): THREE.Line {
   return line;
 }
 
+/**
+ * Vertices per orbit.
+ *
+ * A polyline cuts the corner of the curve it approximates, and the body itself
+ * is drawn on the true curve, so too few segments leave the body sitting beside
+ * its own orbit by the chord's sagitta - roughly L^2/8r. At five hundred
+ * segments that was a few thousand kilometres for the Earth, which reads as the
+ * line drifting against the body as it crosses each segment. Quadrupling the
+ * count cuts the error sixteenfold for a few hundred kilobytes.
+ */
+const ORBIT_SEGMENTS = 2048;
+const SATELLITE_ORBIT_SEGMENTS = 512;
+
 /** All heliocentric orbits: eight planets, the dwarf planets and the comets. */
 export function createHeliocentricOrbits(jdtt: number): OrbitLine[] {
   const orbits: OrbitLine[] = [];
@@ -39,14 +52,14 @@ export function createHeliocentricOrbits(jdtt: number): OrbitLine[] {
     const info = BODY_BY_ID.get(id);
     orbits.push({
       id,
-      points: sampleOrbit(el, 512),
-      line: makeLine(sampleOrbit(el, 512), info?.color ?? '#8899aa', 0.42),
+      points: sampleOrbit(el, ORBIT_SEGMENTS),
+      line: makeLine(sampleOrbit(el, ORBIT_SEGMENTS), info?.color ?? '#8899aa', 0.42),
     });
   }
   for (const body of SMALL_BODIES) {
     if (body.id === 'pluto') continue;
     const info = BODY_BY_ID.get(body.id);
-    const points = sampleOrbit(body.elements as OrbitalElements, 640);
+    const points = sampleOrbit(body.elements as OrbitalElements, ORBIT_SEGMENTS);
     orbits.push({
       id: body.id,
       points,
@@ -63,7 +76,7 @@ export function createSatelliteOrbits(jdtt: number): OrbitLine[] {
     if (!bases.has(sat.parent)) bases.set(sat.parent, equatorialBasis(sat.parent, jdtt));
     const basis = bases.get(sat.parent) as [Vec3, Vec3, Vec3];
     const points: Vec3[] = [];
-    const segments = 256;
+    const segments = SATELLITE_ORBIT_SEGMENTS;
     for (let s = 0; s <= segments; s++) {
       const E = (s / segments) * Math.PI * 2;
       const nu = 2 * Math.atan2(
@@ -96,7 +109,7 @@ export function createSatelliteOrbits(jdtt: number): OrbitLine[] {
 /** The Moon's path, sampled from the real lunar theory rather than an ellipse. */
 export function createLunarOrbit(sample: (jdtt: number) => Vec3, jdtt: number): OrbitLine {
   const points: Vec3[] = [];
-  const segments = 256;
+  const segments = SATELLITE_ORBIT_SEGMENTS;
   for (let s = 0; s <= segments; s++) {
     points.push(sample(jdtt - 27.321661 / 2 + (27.321661 * s) / segments));
   }
