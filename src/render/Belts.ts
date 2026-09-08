@@ -11,6 +11,8 @@ import { makeRandom } from './textures/noise';
 import { AU_UNITS, ScaleSettings } from './frame';
 
 const VERTEX_SHADER = `
+  #include <common>
+  #include <logdepthbuf_pars_vertex>
   attribute float aSemiMajor;
   attribute float aEcc;
   attribute float aInc;
@@ -64,12 +66,16 @@ const VERTEX_SHADER = `
     vec4 mv = modelViewMatrix * vec4(scenePos, 1.0);
     gl_Position = projectionMatrix * mv;
     gl_PointSize = clamp(aSize * uPointScale / max(1.0, -mv.z) * 40000.0, 0.6, 4.0);
+    #include <logdepthbuf_vertex>
   }
 `;
 
 const FRAGMENT_SHADER = `
+  #include <common>
+  #include <logdepthbuf_pars_fragment>
   varying vec3 vColor;
   void main() {
+    #include <logdepthbuf_fragment>
     vec2 d = gl_PointCoord - vec2(0.5);
     float a = smoothstep(0.5, 0.1, length(d));
     if (a < 0.05) discard;

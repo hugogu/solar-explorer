@@ -178,6 +178,8 @@ export class BodyView {
         uSunDirection: { value: new THREE.Vector3(1, 0, 0) },
       },
       vertexShader: `
+        #include <common>
+        #include <logdepthbuf_pars_vertex>
         varying vec3 vNormalView;
         varying vec3 vViewDir;
         varying vec3 vWorldNormal;
@@ -187,9 +189,12 @@ export class BodyView {
           vWorldNormal = normalize(mat3(modelMatrix) * normal);
           vViewDir = normalize(-mv.xyz);
           gl_Position = projectionMatrix * mv;
+          #include <logdepthbuf_vertex>
         }
       `,
       fragmentShader: `
+        #include <common>
+        #include <logdepthbuf_pars_fragment>
         uniform vec3 uColor;
         uniform float uPower;
         uniform float uIntensity;
@@ -198,6 +203,7 @@ export class BodyView {
         varying vec3 vViewDir;
         varying vec3 vWorldNormal;
         void main() {
+          #include <logdepthbuf_fragment>
           float rim = 1.0 - max(dot(vNormalView, vViewDir), 0.0);
           float lit = clamp(dot(vWorldNormal, uSunDirection) * 1.6 + 0.35, 0.0, 1.0);
           float a = pow(rim, uPower) * uIntensity * lit;

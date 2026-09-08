@@ -105,8 +105,13 @@ export class Sky {
     geometry.setAttribute('starSize', new THREE.BufferAttribute(sizes, 1));
 
     const material = new THREE.ShaderMaterial({
-      uniforms: { uScale: { value: Math.min(2, window.devicePixelRatio || 1) } },
+      uniforms: {
+        uScale: { value: Math.min(2, window.devicePixelRatio || 1) },
+        uBrightness: { value: 1 },
+      },
       vertexShader: `
+        #include <common>
+        #include <logdepthbuf_pars_vertex>
         attribute float starSize;
         varying vec3 vColor;
         uniform float uScale;
@@ -115,15 +120,20 @@ export class Sky {
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mv;
           gl_PointSize = starSize * uScale;
+          #include <logdepthbuf_vertex>
         }
       `,
       fragmentShader: `
+        #include <common>
+        #include <logdepthbuf_pars_fragment>
+        uniform float uBrightness;
         varying vec3 vColor;
         void main() {
+          #include <logdepthbuf_fragment>
           vec2 d = gl_PointCoord - vec2(0.5);
           float r = length(d) * 2.0;
           float a = smoothstep(1.0, 0.0, r);
-          a *= a;
+          a *= a * uBrightness;
           if (a < 0.01) discard;
           gl_FragColor = vec4(vColor, a);
         }
@@ -162,6 +172,16 @@ export class Sky {
   setVisible(stars: boolean, milkyWay: boolean): void {
     this.stars.visible = stars;
     this.milkyWay.visible = milkyWay;
+  }
+
+  /**
+   * Fade the sky background as daylight grows.
+   * @param factor 1 in full darkness, 0 in full daylight
+   */
+  setNightFactor(factor: number): void {
+    const f = Math.max(0, Math.min(1, factor));
+    (this.stars.material as THREE.ShaderMaterial).uniforms.uBrightness.value = f;
+    (this.milkyWay.material as THREE.MeshBasicMaterial).opacity = 0.5 * f;
   }
 
   dispose(): void {

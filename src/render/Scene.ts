@@ -14,6 +14,7 @@ import {
   OrbitLine, applyOrbitScale, createHeliocentricOrbits, createLunarOrbit, createSatelliteOrbits,
 } from './Orbits';
 import { Sky } from './Sky';
+import { AtmosphereSky, SKY_PROFILES } from './AtmosphereSky';
 import { AU_UNITS, ScaleSettings, scaleHeliocentric } from './frame';
 import { surfaceFrame } from './orientation';
 import { lunarPositionJ2000 } from '../astro/satellites';
@@ -57,6 +58,7 @@ export class Scene {
   readonly views = new Map<string, BodyView>();
   private readonly sky: Sky;
   private readonly belts = new Belts();
+  private readonly atmosphereSky = new AtmosphereSky();
   private readonly labels: Labels;
   private readonly orbits: OrbitLine[] = [];
   private readonly orbitById = new Map<string, OrbitLine>();
@@ -91,6 +93,7 @@ export class Scene {
     });
     this.scene.add(this.sky.group);
     this.scene.add(this.belts.group);
+    this.scene.add(this.atmosphereSky.mesh);
 
     // The Sun lights everything; falloff is compressed in the material tint
     // rather than the light itself, so distant planets stay legible.
@@ -203,19 +206,28 @@ export class Scene {
       const state = simulation.get(settings.surface.bodyId);
       const view = this.views.get(settings.surface.bodyId);
       const position = this.scaledPositions.get(settings.surface.bodyId);
-      if (state && view && position) {
+      const sunPosition = this.scaledPositions.get('sun');
+      if (state && view && position && sunPosition) {
         const radius = view.baseRadius * settings.scale.bodyScale;
         const frame = surfaceFrame(
           state.raDec0[0], state.raDec0[1], state.meridian,
           settings.surface.latitude, settings.surface.longitude,
           radius * 1.0004,
         );
+        const eye = frame.position.clone().add(position);
         this.rig.mode = 'surface';
-        this.rig.setSurfaceFrame(
-          frame.position.clone().add(position), frame.up, frame.north, frame.east,
+        this.rig.setSurfaceFrame(eye, frame.up, frame.north, frame.east);
+        const toSun = sunPosition.clone().sub(eye).normalize();
+        this.atmosphereSky.update(settings.surface.bodyId, eye, frame.up, toSun);
+        // Stars wash out as the sky brightens, the way they really do.
+        const sunAltitude = (Math.asin(Math.max(-1, Math.min(1, toSun.dot(frame.up)))) * 180) / Math.PI;
+        this.sky.setNightFactor(
+          SKY_PROFILES[settings.surface.bodyId] ? (-sunAltitude - 3) / 12 : 1,
         );
       }
     } else {
+      this.atmosphereSky.setVisible(false);
+      this.sky.setNightFactor(1);
       this.rig.mode = 'orbit';
       const focus = settings.focus ? this.scaledPositions.get(settings.focus) : undefined;
       this.rig.target.copy(focus ?? new THREE.Vector3());

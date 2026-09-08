@@ -35,12 +35,15 @@ export function iauFrame(ra0: number, dec0: number, w: number, target = new THRE
 }
 
 /**
- * Orientation for a rendered sphere. three.js spheres have their poles on +Y
- * and the generated maps put longitude 0 on -X, so the IAU frame is rotated by
- * a further 180 degrees about the pole and 90 degrees about X.
+ * Orientation for a rendered sphere.
+ *
+ * three.js sphere geometry puts its poles on +Y and maps texture u = 0.5 to
+ * local +X, which is exactly where an equirectangular map puts longitude zero.
+ * A single 90 degree rotation about X therefore lines the mesh up with the IAU
+ * body frame: +Y becomes the north pole and the prime meridian lands on +X.
  */
 export function orientationMatrix(ra0: number, dec0: number, w: number): THREE.Matrix4 {
-  return iauFrame(ra0, dec0, w + 180).multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2));
+  return iauFrame(ra0, dec0, w).multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2));
 }
 
 export interface SurfaceFrame {
