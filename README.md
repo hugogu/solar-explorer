@@ -230,8 +230,14 @@ Issues and pull requests are welcome. Two things worth knowing before you open o
 
 MIT — see [LICENSE](LICENSE).
 
-Imagery downloaded by `npm run fetch-textures` is public-domain NASA/JPL material,
-redistributed by the [three.js](https://github.com/mrdoob/three.js) repository.
+Imagery downloaded by `npm run fetch-textures` comes from two places, neither of
+which is redistributed here:
+
+- [Solar System Scope](https://www.solarsystemscope.com/textures/) — the Sun and
+  the planetary surfaces, including Saturn's rings. Licensed
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- [three.js](https://github.com/mrdoob/three.js) — Earth (day, night, normal,
+  specular, clouds) and the Moon; public-domain NASA/JPL material.
 
 ## Acknowledgements
 

@@ -206,8 +206,12 @@ chunk、相机为什么必须在任何投影之前发布自己的矩阵、判定
 
 MIT，见 [LICENSE](LICENSE)。
 
-`npm run fetch-textures` 下载的影像来自 NASA/JPL（公有领域），
-经由 [three.js](https://github.com/mrdoob/three.js) 仓库分发。
+`npm run fetch-textures` 下载的影像来自两处，均不随本仓库分发：
+
+- [Solar System Scope](https://www.solarsystemscope.com/textures/)——太阳与各行星表面，
+  含土星环，采用 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) 许可。
+- [three.js](https://github.com/mrdoob/three.js)——地球（昼、夜、法线、高光、云层）
+  与月球，属 NASA/JPL 公有领域素材。
 
 ## 致谢
 
