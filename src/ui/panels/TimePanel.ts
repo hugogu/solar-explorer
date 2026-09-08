@@ -13,6 +13,7 @@ export class TimePanel {
   private readonly playButton: HTMLButtonElement;
   private readonly slider: HTMLInputElement;
   private readonly dateInput: HTMLInputElement;
+  private readonly rangeWarning: HTMLElement;
   private readonly timeInput: HTMLInputElement;
   private editingDate = false;
 
@@ -52,6 +53,9 @@ export class TimePanel {
       input.addEventListener('change', () => this.applyDateInput());
     }
 
+    this.rangeWarning = el('div', { class: 'time-warning' }, '超出行星根数有效区间（1800—2050），位置仅供示意');
+    this.rangeWarning.style.display = 'none';
+
     this.element = el(
       'div',
       { class: 'panel time-panel' },
@@ -60,6 +64,7 @@ export class TimePanel {
         { class: 'time-readout' },
         el('div', { class: 'time-main' }, this.dateEl, this.clockEl),
         el('div', { class: 'time-zone' }, `${state.observer.name} · ${formatOffset(state.observer.offsetHours)}`),
+        this.rangeWarning,
       ),
       el(
         'div',
@@ -121,6 +126,9 @@ export class TimePanel {
       this.dateInput.value = d.toISOString().slice(0, 10);
       this.timeInput.value = d.toISOString().slice(11, 19);
     }
+    // The JPL element set the planets use is fitted to 1800-2050.
+    const year = jdToDate(time.jd).getUTCFullYear();
+    this.rangeWarning.style.display = year < 1800 || year > 2050 ? '' : 'none';
     this.renderPlayIcon();
   }
 }

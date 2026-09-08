@@ -241,6 +241,7 @@ input[type='range']::-moz-range-thumb {
 .time-date { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .time-clock { font-size: 17px; font-family: var(--mono); letter-spacing: 0.02em; }
 .time-zone { font-size: 10px; color: var(--dim); }
+.time-warning { font-size: 10px; color: var(--accent-warm); margin-top: 2px; }
 .time-controls { display: flex; gap: 6px; align-items: center; }
 .time-speed-row { display: flex; align-items: center; gap: 10px; min-width: 150px; }
 .speed-slider { flex: 1; }

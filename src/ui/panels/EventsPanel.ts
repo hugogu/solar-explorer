@@ -34,6 +34,7 @@ export class EventsPanel {
   private readonly lonInput: HTMLInputElement;
   private cachedDayKey = '';
   private cachedEclipseKey = '';
+  private lastComputeAt = 0;
 
   constructor(
     private readonly state: AppState,
@@ -136,6 +137,12 @@ export class EventsPanel {
 
   /** @param force recompute even when the day has not changed */
   update(force = false): void {
+    // At high simulation speeds the date can roll over thousands of times a
+    // second; recomputing rise/set that often would stall the frame loop.
+    const now = performance.now();
+    if (!force && now - this.lastComputeAt < 250) return;
+    this.lastComputeAt = now;
+
     const { time, observer } = this.state;
     const localDay = Math.floor(time.jd + observer.offsetHours / 24 + 0.5);
     const dayKey = `${localDay}|${observer.latitude}|${observer.longitude}`;

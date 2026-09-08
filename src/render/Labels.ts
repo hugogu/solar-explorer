@@ -35,7 +35,23 @@ export class Labels {
     return element;
   }
 
-  /** Place a label at a world position; returns false when it is off screen. */
+  /** Screen boxes claimed so far this frame, used to cull overlapping labels. */
+  private readonly claimed: Array<[number, number, number, number]> = [];
+
+  /** Call once per frame before placing any labels. */
+  beginFrame(): void {
+    this.claimed.length = 0;
+  }
+
+  /**
+   * Place a label at a world position.
+   *
+   * Labels are offered in priority order and a lower priority one is dropped
+   * when it would collide with a box already taken, which keeps a crowded inner
+   * system readable instead of a pile of overlapping comet names.
+   *
+   * @returns false when the label is off screen or was culled
+   */
   place(
     id: string,
     worldPosition: THREE.Vector3,
@@ -47,16 +63,33 @@ export class Labels {
     const element = this.elements.get(id);
     if (!element) return false;
     this.projected.copy(worldPosition).project(camera);
-    const visible =
+    const onScreen =
       this.projected.z < 1 &&
-      this.projected.x > -1.15 && this.projected.x < 1.15 &&
-      this.projected.y > -1.15 && this.projected.y < 1.15;
-    if (!visible) {
+      this.projected.x > -1.05 && this.projected.x < 1.05 &&
+      this.projected.y > -1.05 && this.projected.y < 1.05;
+    if (!onScreen) {
       element.style.display = 'none';
       return false;
     }
     const x = (this.projected.x * 0.5 + 0.5) * width;
     const y = (-this.projected.y * 0.5 + 0.5) * height;
+
+    // Estimated box: CJK glyphs are close to square at the label font size.
+    const text = element.textContent ?? '';
+    const glyphs = [...text].reduce((sum, ch) => sum + (ch.charCodeAt(0) > 0x2e80 ? 1 : 0.55), 0);
+    const halfWidth = glyphs * 6.5 + 8;
+    const box: [number, number, number, number] = [x - halfWidth, y - 9, x + halfWidth, y + 9];
+
+    if (!selected) {
+      for (const other of this.claimed) {
+        if (box[0] < other[2] && box[2] > other[0] && box[1] < other[3] && box[3] > other[1]) {
+          element.style.display = 'none';
+          return false;
+        }
+      }
+    }
+    this.claimed.push(box);
+
     element.style.display = '';
     element.style.transform = `translate(-50%, -50%) translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     element.classList.toggle('is-selected', selected);

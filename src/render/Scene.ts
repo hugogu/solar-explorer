@@ -338,8 +338,17 @@ export class Scene {
       this.labels.hideAll();
       return;
     }
+    this.labels.beginFrame();
     const cameraPosition = this.rig.camera.position;
-    for (const state of simulation.list()) {
+
+    // Offer labels most-important first so collisions drop the least useful.
+    const ordered = simulation.list().slice().sort((a, b) => {
+      if (a.id === settings.selected) return -1;
+      if (b.id === settings.selected) return 1;
+      return labelPriority(a) - labelPriority(b);
+    });
+
+    for (const state of ordered) {
       const position = this.scaledPositions.get(state.id);
       const view = this.views.get(state.id);
       if (!position || !view) continue;
@@ -349,13 +358,27 @@ export class Scene {
 
       let show = true;
       if (state.info.kind === 'moon') {
+        // Only while its planet is actually being looked at.
         const parentPosition = this.scaledPositions.get(state.parentId as string);
-        show = parentPosition ? cameraPosition.distanceTo(parentPosition) < state.parentDistance * AU_UNITS * settings.scale.moonOrbitScale * 60 : false;
+        show = parentPosition
+          ? cameraPosition.distanceTo(parentPosition) <
+            state.parentDistance * AU_UNITS * settings.scale.moonOrbitScale * 12
+          : false;
+      } else if (state.info.kind === 'comet') {
+        // A comet is worth naming when it is close enough to the Sun to be
+        // active, or when the viewer has gone looking for it.
+        show = state.sunDistance < 6 ||
+          state.id === settings.selected ||
+          distance < 3e5;
       }
-      if (apparentSize > 0.6) show = false; // too close, the label would sit inside the body
+      // A label sitting inside the body it names is just noise.
+      if (apparentSize > 0.6) show = false;
       if (settings.surface && state.id === settings.surface.bodyId) show = false;
       if (show) {
-        this.labels.place(state.id, position, this.rig.camera, this.width, this.height, settings.selected === state.id);
+        this.labels.place(
+          state.id, position, this.rig.camera, this.width, this.height,
+          settings.selected === state.id,
+        );
       } else {
         this.labels.hide(state.id);
       }
@@ -420,6 +443,17 @@ export class Scene {
 
   render(): void {
     this.renderer.render(this.scene, this.rig.camera);
+  }
+}
+
+/** Label importance: lower wins a collision. */
+function labelPriority(state: BodyState): number {
+  switch (state.info.kind) {
+    case 'star': return 0;
+    case 'planet': return 1;
+    case 'dwarf': return 3;
+    case 'moon': return 4;
+    default: return 5;
   }
 }
 
