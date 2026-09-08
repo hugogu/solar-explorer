@@ -20,7 +20,7 @@ import {
   Eclipse, LunarEclipse, SolarEclipse, findEclipses, localSolarCircumstances, lunarEclipseVisible,
 } from '../../astro/eclipse';
 import { moonPhase, moonPosition } from '../../astro/moon';
-import { sunPosition } from '../../astro/sun';
+import { nextSolarLongitude, sunPosition } from '../../astro/sun';
 import { jdToTT, ttToJD } from '../../astro/time';
 
 const SOLAR_TYPE_NAMES: Record<string, string> = {
@@ -449,19 +449,12 @@ export class EventsPanel {
     const offset = this.state.observer.offsetHours;
     const names = ['春分', '夏至', '秋分', '冬至'];
     const jdtt = jdToTT(this.state.time.jd);
-    const rows: Array<[string, string]> = [];
-    for (let i = 0; i < 4; i++) {
-      const target = i * 90;
-      const jd = solveSolarLongitude(target, jdtt);
-      if (jd > jdtt) rows.push([names[i], `${formatDate(ttToJD(jd), offset)} ${formatClock(ttToJD(jd), offset)}`]);
-    }
-    // Wrap into next year so four entries are always shown.
-    for (let i = 0; i < 4 && rows.length < 4; i++) {
-      const jd = solveSolarLongitude(i * 90, jdtt + 366);
-      rows.push([names[i], `${formatDate(ttToJD(jd), offset)} ${formatClock(ttToJD(jd), offset)}`]);
-    }
-    rows.sort((a, b) => a[1].localeCompare(b[1]));
-    this.bodyEl.appendChild(el('div', { class: 'panel-title' }, icon(ICONS.clock, 14), '二分二至（北半球）'));
+    const rows = names
+      .map((name, i) => ({ name, jd: nextSolarLongitude(i * 90, jdtt) }))
+      .sort((a, b) => a.jd - b.jd)
+      .map(({ name, jd }) =>
+        [name, `${formatDate(ttToJD(jd), offset)} ${formatClock(ttToJD(jd), offset)}`] as [string, string]);
+    this.bodyEl.appendChild(el('div', { class: 'panel-title' }, icon(ICONS.clock, 14), '接下来的二分二至（北半球）'));
     this.bodyEl.appendChild(table(rows));
   }
 
@@ -471,19 +464,6 @@ export class EventsPanel {
     this.state.emit('time');
     this.update(true);
   }
-}
-
-/** First instant after `after` when the Sun reaches the given ecliptic longitude. */
-function solveSolarLongitude(targetDeg: number, after: number): number {
-  let jd = after;
-  for (let i = 0; i < 60; i++) {
-    const lon = sunPosition(jd).lon;
-    let delta = ((lon - targetDeg + 540) % 360) - 180;
-    if (delta > 0) delta -= 360; // always search forwards
-    jd -= delta / 0.9856473;
-    if (Math.abs(delta) < 1e-7) break;
-  }
-  return jd;
 }
 
 function table(rows: Array<[string, string]>): HTMLElement {

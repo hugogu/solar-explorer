@@ -158,6 +158,16 @@ describe('orbital events', () => {
     expect(value!.elongation).toBeGreaterThan(175);
   });
 
+  it('predicts Halley returning in July 2061', () => {
+    const list = nextApsides('halley', jdToTT(utcToJD(2026, 9, 8)), 40000);
+    const perihelion = list.find((a) => a.kind === 'perihelion');
+    expect(perihelion).toBeDefined();
+    const date = jdToDate(perihelion!.jd);
+    expect(date.getUTCFullYear()).toBe(2061);
+    expect(date.getUTCMonth()).toBe(6);
+    expect(perihelion!.distanceAu).toBeCloseTo(0.587, 2);
+  });
+
   it('resolves positions for every catalogued body', () => {
     const jdtt = jdToTT(utcToJD(2026, 9, 8));
     for (const id of ['sun', 'earth', 'moon', 'io', 'titan', 'triton', 'charon', 'ceres', 'halley', 'sedna']) {

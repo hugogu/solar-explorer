@@ -87,8 +87,8 @@ export const COMETS: SmallBody[] = [
   {
     id: 'halley',
     elements: {
-      a: 17.834, e: 0.96714, i: 162.26, node: 58.42, peri: 111.33,
-      q: 0.5871, tp: utcToJD(1986, 2, 9, 11, 0), epoch: J2000, periodDays: 75.32 * 365.25,
+      a: 17.874, e: 0.96714, i: 162.26, node: 58.42, peri: 111.33,
+      q: 0.5871, tp: utcToJD(1986, 2, 9, 11, 0), epoch: J2000, periodDays: 27563.4,
     },
     phaseIsReal: true,
   },

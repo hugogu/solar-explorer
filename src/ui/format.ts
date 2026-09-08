@@ -32,25 +32,28 @@ export function weekday(jd: number, offsetHours: number): string {
   return '周' + '日一二三四五六'[d.getUTCDay()];
 }
 
-/** Large numbers with Chinese myriad grouping. */
+/**
+ * Large numbers with Chinese myriad grouping.
+ * @param unit appended directly, with no space, so "9.18 亿公里" reads naturally
+ */
 export function formatBigNumber(value: number, unit = ''): string {
   const abs = Math.abs(value);
   if (abs >= 1e12) return `${(value / 1e12).toFixed(2)} 万亿${unit}`;
   if (abs >= 1e8) return `${(value / 1e8).toFixed(2)} 亿${unit}`;
   if (abs >= 1e4) return `${(value / 1e4).toFixed(2)} 万${unit}`;
-  if (abs >= 100) return `${value.toFixed(0)}${unit}`;
-  if (abs >= 1) return `${value.toFixed(2)}${unit}`;
-  return `${value.toPrecision(3)}${unit}`;
+  if (abs >= 100) return `${value.toFixed(0)} ${unit}`;
+  if (abs >= 1) return `${value.toFixed(2)} ${unit}`;
+  return `${value.toPrecision(3)} ${unit}`;
 }
 
 export function formatDistanceAu(au: number): string {
   const km = au * 149597870.7;
-  if (au < 0.0005) return `${formatBigNumber(km, ' 公里')}`;
-  return `${au.toFixed(au < 10 ? 4 : 3)} AU（${formatBigNumber(km, ' 公里')}）`;
+  if (au < 0.0005) return formatBigNumber(km, '公里');
+  return `${au.toFixed(au < 10 ? 4 : 3)} AU（${formatBigNumber(km, '公里')}）`;
 }
 
 export function formatKm(km: number): string {
-  return formatBigNumber(km, ' 公里');
+  return formatBigNumber(km, '公里');
 }
 
 export function formatDurationDays(days: number): string {

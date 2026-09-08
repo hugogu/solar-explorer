@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moonPosition } from '../src/astro/moon';
-import { sunPosition, equationOfTime } from '../src/astro/sun';
+import { sunPosition, equationOfTime, nextSolarLongitude } from '../src/astro/sun';
 import { jdToTT, utcToJD, jdToDate, gmst, deltaTSeconds } from '../src/astro/time';
 import { dayEvents, sunAltitude, moonAltitude, findRiseSet } from '../src/astro/riseset';
 import { findEclipses, localSolarCircumstances, topocentricDiscs } from '../src/astro/eclipse';
@@ -50,6 +50,19 @@ describe('solar theory', () => {
       expect(diff).toBeLessThan(0.0012);
     });
   }
+  it('finds the next equinox and solstice rather than one years later', () => {
+    // The naive Newton solve used to overshoot by whole years.
+    const start = jdToTT(utcToJD(2026, 9, 8));
+    const seasons: Array<[number, string]> = [
+      [180, '2026-09-23'], [270, '2026-12-21'], [0, '2027-03-20'], [90, '2027-06-21'],
+    ];
+    for (const [longitude, expected] of seasons) {
+      const jd = nextSolarLongitude(longitude, start);
+      expect(jd).toBeGreaterThan(start);
+      expect(jdToDate(jd).toISOString().slice(0, 10), `${longitude} deg`).toBe(expected);
+    }
+  });
+
   it('has an equation of time near +16 min in early November', () => {
     const e = equationOfTime(jdToTT(utcToJD(2025, 11, 3)));
     expect(e).toBeGreaterThan(16);

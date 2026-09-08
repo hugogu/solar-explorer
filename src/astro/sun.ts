@@ -67,3 +67,24 @@ export function equationOfTime(jdtt: number): number {
   e = ((((e + 180) % 360) + 360) % 360) - 180;
   return e * 4;
 }
+
+/**
+ * First instant at or after `afterJdtt` when the Sun reaches a given ecliptic
+ * longitude - the definition of the equinoxes (0 and 180 degrees) and the
+ * solstices (90 and 270).
+ *
+ * The initial guess steps forward by however far the Sun still has to travel,
+ * so the Newton refinement lands on the next occurrence rather than one several
+ * years away.
+ */
+export function nextSolarLongitude(targetDeg: number, afterJdtt: number): number {
+  const meanMotion = 0.9856473; // degrees per day
+  const remaining = (((targetDeg - sunPosition(afterJdtt).lon) % 360) + 360) % 360;
+  let jd = afterJdtt + remaining / meanMotion;
+  for (let i = 0; i < 20; i++) {
+    const delta = ((sunPosition(jd).lon - targetDeg + 540) % 360) - 180;
+    jd -= delta / meanMotion;
+    if (Math.abs(delta) < 1e-7) break;
+  }
+  return jd;
+}
