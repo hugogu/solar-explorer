@@ -16,7 +16,7 @@ the next eclipse, or the track its shadow will sweep across the ground.
 
 [中文说明](README.zh-CN.md) · [Quick start](#quick-start) · [Accuracy](#accuracy-and-sources) · [Architecture](#architecture)
 
-<img src="docs/images/hero.jpg" alt="Saturn, its ring system and moons rendered in Solar Explorer" width="100%">
+<img src="docs/images/hero.jpg" alt="Saturn in full sunlight, its rings wide open and its moons labelled" width="100%">
 
 </div>
 
@@ -48,7 +48,7 @@ Run time forwards or backwards at ten speeds from real time to a decade a second
 or jump straight to a date. The clock says so when you leave the window the planetary
 element set was fitted to.
 
-<img src="docs/images/jupiter.jpg" alt="Jupiter's cloud bands with Io and Europa on their orbits" width="100%">
+<img src="docs/images/jupiter.jpg" alt="Jupiter's belts and Great Red Spot, with the Galilean moons on their orbits" width="100%">
 
 ### Sunrise, sunset and the local sky
 
@@ -58,7 +58,7 @@ world answers the same question for itself: how long its solar day is (24.66 h o
 about 29.5 Earth days on the Moon, 176 on Mercury) and when the Sun next rises where
 you are standing on it.
 
-<img src="docs/images/earth-night.jpg" alt="The Earth at its terminator, city lights on the night side and sunlight glinting off the Atlantic" width="100%">
+<img src="docs/images/earth-night.jpg" alt="Africa and the Indian Ocean in daylight, with the terminator and city lights across Asia" width="100%">
 
 *Photographic maps are optional. With them the Earth carries its day map, cloud layer,
 city lights on the night side and an ocean that catches the Sun; without them every body
@@ -73,7 +73,7 @@ shows who sees a partial eclipse. Shadow shading is computed per fragment from t
 angular geometry, so it is the right size whatever scale the scene is drawn at — the
 same code puts Io's shadow on Jupiter.
 
-<img src="docs/images/eclipse-track.jpg" alt="The 2027 total solar eclipse track across North Africa with the umbra over Libya" width="100%">
+<img src="docs/images/eclipse-track.jpg" alt="The 2027 total solar eclipse track across North Africa with the umbra over Egypt" width="100%">
 
 ### Stand on the surface
 
