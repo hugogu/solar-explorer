@@ -82,6 +82,8 @@ const zh = {
   'list.toggleKind': '显示或隐藏{kind}',
   'list.expandMoons': '展开卫星',
   'list.expandMoonsOf': '展开 {name} 的卫星',
+  'list.moonCount': '{count} 颗卫星',
+  'list.moonCountOne': '1 颗卫星',
 
   // ------------------------------------------------------------------ info
   'info.emptyTitle': '点击任意天体开始探索',
@@ -399,6 +401,8 @@ const en: Record<StringKey, string> = {
   'list.toggleKind': 'Show or hide {kind}',
   'list.expandMoons': 'Show moons',
   'list.expandMoonsOf': "Show {name}'s moons",
+  'list.moonCount': '{count} moons',
+  'list.moonCountOne': '1 moon',
 
   // ------------------------------------------------------------------ info
   'info.emptyTitle': 'Pick any body to start exploring',

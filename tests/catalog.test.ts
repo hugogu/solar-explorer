@@ -64,6 +64,28 @@ describe('catalogue integrity', () => {
     }
   });
 
+  /**
+   * The designation is shown apart from the name, so it must not also be
+   * buried inside it - "1P/Halley" would come out as "1P/Halley 1P".
+   */
+  it('keeps designations out of the names that carry them', () => {
+    const designations = ALL_BODIES.map((b) => b.designation).filter(Boolean);
+    expect(new Set(designations).size).toBe(designations.length);
+    for (const b of ALL_BODIES) {
+      if (!b.designation) continue;
+      expect(b.name.en.includes(b.designation), b.id).toBe(false);
+    }
+  });
+
+  it('numbers every moon of a planet that has numbered moons', () => {
+    for (const b of ALL_BODIES) {
+      if (b.kind === 'moon' && b.id !== 'moon') {
+        expect(b.designation, b.id).toMatch(/^[A-Z][a-z]+ [IVX]+$/);
+      }
+      if (b.kind === 'comet') expect(b.designation, b.id).toMatch(/^\d+P$|^C\/\d{4} [A-Z]\d$/);
+    }
+  });
+
   it('links the Galilean moons to Jupiter', () => {
     const ids = moonsOf('jupiter').map((m) => m.id);
     expect(ids).toContain('io');

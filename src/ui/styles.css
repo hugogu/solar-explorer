@@ -334,7 +334,7 @@ input[type='range']::-moz-range-thumb {
 .body-row.is-child { padding-left: 26px; font-size: 12px; color: var(--muted); }
 .swatch { width: 9px; height: 9px; border-radius: 50%; flex: none; box-shadow: 0 0 6px currentColor; }
 .row-name { flex: none; }
-.row-en { color: var(--dim); font-size: 10px; margin-left: auto; padding-right: 4px; }
+.row-alias { color: var(--dim); font-size: 10px; margin-left: auto; padding-right: 4px; white-space: nowrap; }
 .row-toggle {
   border: 0; background: transparent; color: var(--muted); cursor: pointer;
   padding: 2px; display: flex; transition: transform 0.15s;
@@ -353,6 +353,14 @@ input[type='range']::-moz-range-thumb {
 .info-symbol { font-size: 18px; color: var(--accent-warm); }
 .info-title { font-size: 20px; margin: 0; font-weight: 600; letter-spacing: 0.05em; }
 .info-en { font-size: 11px; color: var(--dim); }
+.info-designation {
+  font-size: 10px;
+  color: var(--dim);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
 .info-tagline { font-size: 12px; color: var(--accent); line-height: 1.6; }
 .info-parent { font-size: 11px; color: var(--dim); }
 .info-actions { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }

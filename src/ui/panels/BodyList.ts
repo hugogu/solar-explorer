@@ -3,7 +3,7 @@ import { ALL_BODIES, BodyInfo, BodyKind, moonsOf } from '../../data';
 import { AppState } from '../../app/AppState';
 import { ICONS, clear, el, icon } from '../dom';
 import { type StringKey, t, tr } from '../../i18n';
-import { otherName, searchableText } from '../names';
+import { rowAlias, searchableText } from '../names';
 
 interface Group {
   titleKey: StringKey;
@@ -136,7 +136,7 @@ export class BodyList {
       },
       swatch,
       el('span', { class: 'row-name' }, tr(body.name)),
-      el('span', { class: 'row-en' }, otherName(body)),
+      el('span', { class: 'row-alias' }, rowAlias(body)),
       ...children,
     );
     return row;

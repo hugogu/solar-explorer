@@ -61,6 +61,12 @@ export interface BodyInfo {
   parent?: string;
   /** astronomical symbol */
   symbol?: string;
+  /**
+   * International catalogue designation, the same in every language:
+   * "Jupiter I", "1P", "(134340)". Kept apart from the name so a list can show
+   * one without the other.
+   */
+  designation?: string;
   /** one-line hook shown under the title */
   tagline: Localised<string>;
   description: Localised<string>;

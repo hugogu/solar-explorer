@@ -122,6 +122,7 @@ export class InfoPanel {
       el('div', { class: 'info-title-row' },
         info.symbol ? el('span', { class: 'info-symbol' }, info.symbol) : null,
         el('h2', { class: 'info-title' }, tr(info.name)),
+        info.designation ? el('span', { class: 'info-designation' }, info.designation) : null,
         el('span', { class: 'info-en' }, otherName(info)),
       ),
       el('div', { class: 'info-tagline' }, tr(info.tagline)),

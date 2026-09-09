@@ -62,6 +62,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'phobos',
     name: { zh: '火卫一', en: 'Phobos' },
+    designation: 'Mars I',
     kind: 'moon',
     parent: 'mars',
     tagline: {
@@ -92,6 +93,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'deimos',
     name: { zh: '火卫二', en: 'Deimos' },
+    designation: 'Mars II',
     kind: 'moon',
     parent: 'mars',
     tagline: {
@@ -122,6 +124,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'amalthea',
     name: { zh: '木卫五', en: 'Amalthea' },
+    designation: 'Jupiter V',
     kind: 'moon',
     parent: 'jupiter',
     tagline: {
@@ -152,6 +155,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'io',
     name: { zh: '木卫一', en: 'Io' },
+    designation: 'Jupiter I',
     kind: 'moon',
     parent: 'jupiter',
     tagline: {
@@ -190,6 +194,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'europa',
     name: { zh: '木卫二', en: 'Europa' },
+    designation: 'Jupiter II',
     kind: 'moon',
     parent: 'jupiter',
     tagline: {
@@ -228,6 +233,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'ganymede',
     name: { zh: '木卫三', en: 'Ganymede' },
+    designation: 'Jupiter III',
     kind: 'moon',
     parent: 'jupiter',
     tagline: {
@@ -260,6 +266,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'callisto',
     name: { zh: '木卫四', en: 'Callisto' },
+    designation: 'Jupiter IV',
     kind: 'moon',
     parent: 'jupiter',
     tagline: {
@@ -292,6 +299,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'mimas',
     name: { zh: '土卫一', en: 'Mimas' },
+    designation: 'Saturn I',
     kind: 'moon',
     parent: 'saturn',
     tagline: {
@@ -324,6 +332,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'enceladus',
     name: { zh: '土卫二', en: 'Enceladus' },
+    designation: 'Saturn II',
     kind: 'moon',
     parent: 'saturn',
     tagline: {
@@ -358,6 +367,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'tethys',
     name: { zh: '土卫三', en: 'Tethys' },
+    designation: 'Saturn III',
     kind: 'moon',
     parent: 'saturn',
     tagline: {
@@ -388,6 +398,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'dione',
     name: { zh: '土卫四', en: 'Dione' },
+    designation: 'Saturn IV',
     kind: 'moon',
     parent: 'saturn',
     tagline: {
@@ -418,6 +429,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'rhea',
     name: { zh: '土卫五', en: 'Rhea' },
+    designation: 'Saturn V',
     kind: 'moon',
     parent: 'saturn',
     tagline: {
@@ -448,6 +460,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'titan',
     name: { zh: '土卫六', en: 'Titan' },
+    designation: 'Saturn VI',
     kind: 'moon',
     parent: 'saturn',
     tagline: {
@@ -490,6 +503,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'hyperion',
     name: { zh: '土卫七', en: 'Hyperion' },
+    designation: 'Saturn VII',
     kind: 'moon',
     parent: 'saturn',
     tagline: {
@@ -520,6 +534,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'iapetus',
     name: { zh: '土卫八', en: 'Iapetus' },
+    designation: 'Saturn VIII',
     kind: 'moon',
     parent: 'saturn',
     tagline: {
@@ -552,6 +567,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'phoebe',
     name: { zh: '土卫九', en: 'Phoebe' },
+    designation: 'Saturn IX',
     kind: 'moon',
     parent: 'saturn',
     tagline: {
@@ -582,6 +598,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'miranda',
     name: { zh: '天卫五', en: 'Miranda' },
+    designation: 'Uranus V',
     kind: 'moon',
     parent: 'uranus',
     tagline: {
@@ -612,6 +629,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'ariel',
     name: { zh: '天卫一', en: 'Ariel' },
+    designation: 'Uranus I',
     kind: 'moon',
     parent: 'uranus',
     tagline: {
@@ -642,6 +660,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'umbriel',
     name: { zh: '天卫二', en: 'Umbriel' },
+    designation: 'Uranus II',
     kind: 'moon',
     parent: 'uranus',
     tagline: {
@@ -672,6 +691,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'titania',
     name: { zh: '天卫三', en: 'Titania' },
+    designation: 'Uranus III',
     kind: 'moon',
     parent: 'uranus',
     tagline: {
@@ -702,6 +722,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'oberon',
     name: { zh: '天卫四', en: 'Oberon' },
+    designation: 'Uranus IV',
     kind: 'moon',
     parent: 'uranus',
     tagline: {
@@ -732,6 +753,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'proteus',
     name: { zh: '海卫八', en: 'Proteus' },
+    designation: 'Neptune VIII',
     kind: 'moon',
     parent: 'neptune',
     tagline: {
@@ -762,6 +784,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'triton',
     name: { zh: '海卫一', en: 'Triton' },
+    designation: 'Neptune I',
     kind: 'moon',
     parent: 'neptune',
     tagline: {
@@ -800,6 +823,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'nereid',
     name: { zh: '海卫二', en: 'Nereid' },
+    designation: 'Neptune II',
     kind: 'moon',
     parent: 'neptune',
     tagline: {
@@ -830,6 +854,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'charon',
     name: { zh: '冥卫一', en: 'Charon' },
+    designation: 'Pluto I',
     kind: 'moon',
     parent: 'pluto',
     tagline: {
@@ -862,6 +887,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'nix',
     name: { zh: '冥卫二', en: 'Nix' },
+    designation: 'Pluto II',
     kind: 'moon',
     parent: 'pluto',
     tagline: { zh: '在混沌中翻滚的小卫星', en: 'A small moon tumbling chaotically' },
@@ -887,6 +913,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'hydra',
     name: { zh: '冥卫三', en: 'Hydra' },
+    designation: 'Pluto III',
     kind: 'moon',
     parent: 'pluto',
     tagline: {
@@ -909,6 +936,7 @@ export const MOONS: BodyInfo[] = [
   {
     id: 'dysnomia',
     name: { zh: '阋卫一', en: 'Dysnomia' },
+    designation: 'Eris I',
     kind: 'moon',
     parent: 'eris',
     tagline: {

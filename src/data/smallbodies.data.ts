@@ -5,6 +5,7 @@ export const DWARF_PLANET_INFO: BodyInfo[] = [
   {
     id: 'ceres',
     name: { zh: '谷神星', en: 'Ceres' },
+    designation: '(1)',
     kind: 'dwarf',
     tagline: {
       zh: '小行星带中唯一的矮行星，也是第一颗被发现的小行星',
@@ -39,6 +40,7 @@ export const DWARF_PLANET_INFO: BodyInfo[] = [
   {
     id: 'pluto',
     name: { zh: '冥王星', en: 'Pluto' },
+    designation: '(134340)',
     kind: 'dwarf',
     symbol: '♇',
     tagline: {
@@ -84,6 +86,7 @@ export const DWARF_PLANET_INFO: BodyInfo[] = [
   {
     id: 'haumea',
     name: { zh: '妊神星', en: 'Haumea' },
+    designation: '(136108)',
     kind: 'dwarf',
     tagline: {
       zh: '橄榄球形状的矮行星，自转一圈不到 4 小时，还带着光环',
@@ -118,6 +121,7 @@ export const DWARF_PLANET_INFO: BodyInfo[] = [
   {
     id: 'makemake',
     name: { zh: '鸟神星', en: 'Makemake' },
+    designation: '(136472)',
     kind: 'dwarf',
     tagline: {
       zh: '柯伊伯带第二亮的天体，表面覆盖着甲烷冰',
@@ -149,6 +153,7 @@ export const DWARF_PLANET_INFO: BodyInfo[] = [
   {
     id: 'eris',
     name: { zh: '阋神星', en: 'Eris' },
+    designation: '(136199)',
     kind: 'dwarf',
     tagline: {
       zh: '比冥王星更重的"麻烦制造者"，它把冥王星挤出了行星行列',
@@ -180,6 +185,7 @@ export const DWARF_PLANET_INFO: BodyInfo[] = [
   {
     id: 'quaoar',
     name: { zh: '创神星', en: 'Quaoar' },
+    designation: '(50000)',
     kind: 'dwarf',
     tagline: {
       zh: '拥有一圈"不该存在"的光环',
@@ -212,6 +218,7 @@ export const DWARF_PLANET_INFO: BodyInfo[] = [
   {
     id: 'gonggong',
     name: { zh: '共工星', en: 'Gonggong' },
+    designation: '(225088)',
     kind: 'dwarf',
     tagline: {
       zh: '以中国神话水神命名，自转慢得异常',
@@ -246,6 +253,7 @@ export const DWARF_PLANET_INFO: BodyInfo[] = [
   {
     id: 'sedna',
     name: { zh: '赛德娜', en: 'Sedna' },
+    designation: '(90377)',
     kind: 'dwarf',
     tagline: {
       zh: '来自内奥尔特云的红色流浪者，一圈要走 11400 年',
@@ -279,7 +287,8 @@ export const DWARF_PLANET_INFO: BodyInfo[] = [
 export const COMET_INFO: BodyInfo[] = [
   {
     id: 'halley',
-    name: { zh: '哈雷彗星', en: '1P/Halley' },
+    name: { zh: '哈雷彗星', en: 'Halley' },
+    designation: '1P',
     kind: 'comet',
     tagline: {
       zh: '人类历史上记录最完整的彗星，76 年回归一次',
@@ -319,7 +328,8 @@ export const COMET_INFO: BodyInfo[] = [
   },
   {
     id: 'encke',
-    name: { zh: '恩克彗星', en: '2P/Encke' },
+    name: { zh: '恩克彗星', en: 'Encke' },
+    designation: '2P',
     kind: 'comet',
     tagline: {
       zh: '周期最短的彗星，3.3 年就回来一次',
@@ -351,7 +361,8 @@ export const COMET_INFO: BodyInfo[] = [
   },
   {
     id: 'swift-tuttle',
-    name: { zh: '斯威夫特-塔特尔彗星', en: '109P/Swift-Tuttle' },
+    name: { zh: '斯威夫特-塔特尔彗星', en: 'Swift-Tuttle' },
+    designation: '109P',
     kind: 'comet',
     tagline: {
       zh: '英仙座流星雨的母体，也是潜在的"太阳系最危险天体"',
@@ -385,7 +396,8 @@ export const COMET_INFO: BodyInfo[] = [
   },
   {
     id: 'tempel-tuttle',
-    name: { zh: '坦普尔-塔特尔彗星', en: '55P/Tempel-Tuttle' },
+    name: { zh: '坦普尔-塔特尔彗星', en: 'Tempel-Tuttle' },
+    designation: '55P',
     kind: 'comet',
     tagline: {
       zh: '每 33 年带来一场狮子座流星暴',
@@ -417,7 +429,8 @@ export const COMET_INFO: BodyInfo[] = [
   },
   {
     id: 'churyumov-gerasimenko',
-    name: { zh: '丘留莫夫-格拉西缅科彗星', en: '67P/Churyumov-Gerasimenko' },
+    name: { zh: '丘留莫夫-格拉西缅科彗星', en: 'Churyumov-Gerasimenko' },
+    designation: '67P',
     kind: 'comet',
     tagline: {
       zh: '人类第一次环绕并登陆的彗星，形状像一只橡皮鸭',
@@ -452,7 +465,8 @@ export const COMET_INFO: BodyInfo[] = [
   },
   {
     id: 'hale-bopp',
-    name: { zh: '海尔-波普彗星', en: 'C/1995 O1 Hale-Bopp' },
+    name: { zh: '海尔-波普彗星', en: 'Hale-Bopp' },
+    designation: 'C/1995 O1',
     kind: 'comet',
     tagline: {
       zh: '20 世纪最壮观的大彗星，肉眼可见持续了 18 个月',
@@ -483,7 +497,8 @@ export const COMET_INFO: BodyInfo[] = [
   },
   {
     id: 'hyakutake',
-    name: { zh: '百武彗星', en: 'C/1996 B2 Hyakutake' },
+    name: { zh: '百武彗星', en: 'Hyakutake' },
+    designation: 'C/1996 B2',
     kind: 'comet',
     tagline: {
       zh: '拖着太阳系已知最长尾巴的彗星',
@@ -514,7 +529,8 @@ export const COMET_INFO: BodyInfo[] = [
   },
   {
     id: 'neowise',
-    name: { zh: 'NEOWISE 彗星', en: 'C/2020 F3 NEOWISE' },
+    name: { zh: 'NEOWISE 彗星', en: 'NEOWISE' },
+    designation: 'C/2020 F3',
     kind: 'comet',
     tagline: {
       zh: '1997 年以来北半球最亮的彗星',
