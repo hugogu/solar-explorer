@@ -50,23 +50,6 @@ element set was fitted to.
 
 <img src="docs/images/jupiter.jpg" alt="Jupiter's belts and Great Red Spot, with the Galilean moons on their orbits" width="100%">
 
-### The Sun through its cycle
-
-The Sun is not a still picture. Spot groups emerge, grow over a day or two, take
-weeks to disperse and are carried round by the Sun's own differential rotation, so
-equatorial groups creep ahead of the drawn globe and high-latitude ones fall behind.
-Prominences stand off the limb, and the corona changes shape: two long equatorial
-streamers near minimum, a full crown near maximum.
-
-All of it is driven by the real sunspot cycle rather than a loop. The model is fitted
-to the recorded SIDC minima and maxima for cycles 21 to 25, so 2024 is busy, 2019 is
-almost blank, and Spörer's law moves the spot belts from about 28° down towards the
-equator as a cycle ages. Run time at a year a second and the eleven-year rhythm plays
-out in eleven seconds. The Sun's panel reads out the cycle number and the smoothed
-sunspot number for whatever date is on the clock.
-
-<img src="docs/images/sun.jpg" alt="The Sun near the maximum of cycle 25, with corona, glare, a prominence on the limb and sunspots on the disc" width="100%">
-
 ### Sunrise, sunset and the local sky
 
 Pick a place and get rise, transit, set, day length, the three twilight phases,
@@ -202,12 +185,6 @@ Stated here and in the interface, rather than glossed over.
   orbital distribution. They are not catalogued objects.
 - **Earth's orbit line** is the Earth–Moon barycentre's, which the Earth genuinely swings
   around by 4670 km — so the globe sits a few pixels off its own drawn orbit.
-
-- **Solar activity is statistical, not a forecast.** The cycle is fitted to the recorded
-  SIDC minima, maxima and amplitudes for cycles 21—25 and extrapolated at 11.0 years
-  outside them. Individual spot groups and prominences are generated to match the
-  observed statistics — counts, lifetimes, Spörer latitudes, differential rotation —
-  but they are not the groups that were actually there on the day.
 
 ## Architecture
 

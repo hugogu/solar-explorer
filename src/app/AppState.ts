@@ -51,7 +51,6 @@ export class AppState {
     showBelts: true,
     showOort: false,
     showEclipseTrack: true,
-    showSolarActivity: true,
     showStars: true,
     showMilkyWay: true,
     focus: 'sun',
