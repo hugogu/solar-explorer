@@ -1,4 +1,7 @@
 /** Descriptive catalogue types shared by the UI and the renderer. */
+import type { Localised } from '../i18n';
+
+export type { Localised };
 
 export type BodyKind = 'star' | 'planet' | 'dwarf' | 'moon' | 'comet';
 
@@ -22,7 +25,7 @@ export interface BodyPhysical {
   meanTempC?: number;
   minTempC?: number;
   maxTempC?: number;
-  atmosphere?: string;
+  atmosphere?: Localised<string>;
   surfacePressureBar?: number;
   moonCount?: number;
 }
@@ -52,23 +55,21 @@ export interface RingSpec {
 
 export interface BodyInfo {
   id: string;
-  /** Chinese name */
-  name: string;
-  nameEn: string;
+  name: Localised<string>;
   kind: BodyKind;
   /** parent body id for moons */
   parent?: string;
   /** astronomical symbol */
   symbol?: string;
   /** one-line hook shown under the title */
-  tagline: string;
-  description: string;
+  tagline: Localised<string>;
+  description: Localised<string>;
   /** bullet points of popular-science facts */
-  facts: string[];
+  facts: Localised<string[]>;
   physical: BodyPhysical;
   orbit?: BodyOrbit;
-  discovery?: { by: string; year: string };
-  missions?: string[];
+  discovery?: { by: Localised<string>; year: string };
+  missions?: Localised<string[]>;
   /** base surface colour used by the procedural texture generator */
   color: string;
   /** secondary colour for banding or terrain variation */

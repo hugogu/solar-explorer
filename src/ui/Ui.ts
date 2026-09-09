@@ -16,14 +16,15 @@ import { SettingsPanel } from './panels/SettingsPanel';
 import { TimePanel } from './panels/TimePanel';
 import { SurfaceHud } from './panels/SurfaceHud';
 import { EclipseHud } from './panels/EclipseHud';
+import { type StringKey, language, setLanguage, t } from '../i18n';
 
 type TabId = 'bodies' | 'info' | 'events' | 'settings';
 
-const TABS: Array<{ id: TabId; label: string; iconPath: string }> = [
-  { id: 'bodies', label: '天体', iconPath: ICONS.layers },
-  { id: 'info', label: '信息', iconPath: ICONS.info },
-  { id: 'events', label: '事件', iconPath: ICONS.eclipse },
-  { id: 'settings', label: '设置', iconPath: ICONS.globe },
+const TABS: Array<{ id: TabId; labelKey: StringKey; iconPath: string }> = [
+  { id: 'bodies', labelKey: 'tab.bodies', iconPath: ICONS.layers },
+  { id: 'info', labelKey: 'tab.info', iconPath: ICONS.info },
+  { id: 'events', labelKey: 'tab.events', iconPath: ICONS.eclipse },
+  { id: 'settings', labelKey: 'tab.settings', iconPath: ICONS.globe },
 ];
 
 export class Ui {
@@ -41,9 +42,11 @@ export class Ui {
   private readonly sheet: HTMLElement;
   private readonly sheetBody: HTMLElement;
   private readonly tabBar: HTMLElement;
+  private readonly langButton: HTMLButtonElement;
   private activeTab: TabId = 'info';
   private compact = false;
   private sheetOpen = false;
+  private readonly off: Array<() => void> = [];
 
   constructor(
     container: HTMLElement,
@@ -71,10 +74,16 @@ export class Ui {
     this.rightDock = el('div', { class: 'dock dock-right' });
     this.tabBar = el('div', { class: 'tab-bar' });
     this.sheetBody = el('div', { class: 'sheet-body' });
+    this.langButton = el('button', {
+      class: 'btn btn-ghost lang-btn',
+      title: t('lang.switchLabel'),
+      'aria-label': t('lang.switchLabel'),
+      onclick: () => setLanguage(language() === 'zh' ? 'en' : 'zh'),
+    });
     this.sheet = el('div', { class: 'sheet' },
       el('button', {
         class: 'sheet-handle',
-        'aria-label': '展开或收起面板',
+        'aria-label': t('sheet.toggle'),
         onclick: () => this.toggleSheet(),
       }),
       this.tabBar,
@@ -85,12 +94,13 @@ export class Ui {
       el('header', { class: 'topbar' },
         el('div', { class: 'brand' },
           el('span', { class: 'brand-mark' }, '☉'),
-          el('span', { class: 'brand-name' }, '太阳系'),
+          el('span', { class: 'brand-name' }, t('app.brand')),
         ),
         this.timePanel.element,
+        this.langButton,
         el('button', {
           class: 'btn btn-ghost icon-btn help-btn',
-          title: '快捷键与说明',
+          title: t('help.button'),
           onclick: () => this.toggleHelp(),
         }, icon(ICONS.info, 16)),
       ),
@@ -105,11 +115,31 @@ export class Ui {
 
     this.buildTabs();
     this.layout();
-    window.addEventListener('resize', () => this.layout());
-    state.on('selection', () => {
+    const onResize = () => this.layout();
+    window.addEventListener('resize', onResize);
+    this.off.push(() => window.removeEventListener('resize', onResize));
+    this.off.push(state.on('selection', () => {
       if (this.compact && this.activeTab !== 'info') this.setTab('info');
       if (this.compact) this.setSheetOpen(true);
-    });
+    }));
+  }
+
+  /**
+   * Detach everything.
+   *
+   * Switching language rebuilds the whole interface rather than trying to
+   * re-label it in place, so the old tree and every listener it registered has
+   * to go or they pile up with each switch.
+   */
+  dispose(): void {
+    for (const off of this.off) off();
+    this.off.length = 0;
+    this.timePanel.dispose();
+    this.bodyList.dispose();
+    this.infoPanel.dispose();
+    this.eventsPanel.dispose();
+    this.settingsPanel.dispose();
+    this.root.remove();
   }
 
   private buildTabs(): void {
@@ -127,7 +157,7 @@ export class Ui {
           this.setTab(tab.id);
           this.setSheetOpen(true);
         },
-      }, icon(tab.iconPath, 15), el('span', {}, tab.label)));
+      }, icon(tab.iconPath, 15), el('span', {}, t(tab.labelKey))));
     }
     this.markTab();
   }
@@ -154,6 +184,9 @@ export class Ui {
       this.buildTabs();
     }
     this.root.classList.toggle('is-compact', compact);
+    // The phone top bar has no room for "English"; a two-character code keeps
+    // the button the same width whichever language is showing.
+    this.langButton.textContent = t(compact ? 'lang.switchShort' : 'lang.switchTo');
     this.renderPanels();
   }
 
@@ -194,44 +227,37 @@ export class Ui {
   }
 
   private helpOverlay(): HTMLElement {
-    const rows: Array<[string, string]> = [
-      ['拖动 / 单指滑动', '旋转视角'],
-      ['滚轮 / 双指捏合', '缩放'],
-      ['点击天体或标签', '选中并跟随'],
-      ['空格', '播放 / 暂停'],
-      ['[ 与 ]', '减速 / 加速'],
-      ['← → ↑ ↓ 或 WASD', '旋转视角'],
-      ['Q / E 或 + -', '缩放'],
-      ['1—9', '快速切换到八大行星与冥王星'],
-      ['0', '回到太阳'],
-      ['R', '反转时间方向'],
-      ['L / O', '开关标签 / 轨道'],
-      ['Esc', '取消跟随，退出地表视角'],
+    const rows: Array<[StringKey, StringKey]> = [
+      ['help.key.drag', 'help.act.rotate'],
+      ['help.key.wheel', 'help.act.zoom'],
+      ['help.key.tap', 'help.act.select'],
+      ['help.key.space', 'help.act.play'],
+      ['help.key.brackets', 'help.act.speed'],
+      ['help.key.arrows', 'help.act.rotate'],
+      ['help.key.qe', 'help.act.zoom'],
+      ['help.key.digits', 'help.act.planets'],
+      ['help.key.zero', 'help.act.sun'],
+      ['help.key.r', 'help.act.reverse'],
+      ['help.key.lo', 'help.act.labels'],
+      ['help.key.esc', 'help.act.esc'],
     ];
     const table = el('div', { class: 'data-table' });
     for (const [key, action] of rows) {
       table.appendChild(el('div', { class: 'data-row' },
-        el('div', { class: 'data-label' }, key),
-        el('div', { class: 'data-value' }, action),
+        el('div', { class: 'data-label' }, t(key)),
+        el('div', { class: 'data-value' }, t(action)),
       ));
     }
     return el('div', { class: 'help-overlay', onclick: () => this.toggleHelp() },
       el('div', { class: 'help-card', onclick: (e: Event) => e.stopPropagation() },
         el('div', { class: 'help-head' },
-          el('h2', {}, '操作与说明'),
+          el('h2', {}, t('help.heading')),
           el('button', { class: 'btn btn-ghost icon-btn', onclick: () => this.toggleHelp() }, icon(ICONS.close, 16)),
         ),
         table,
-        el('h3', { class: 'info-h3' }, '数据精度'),
-        el('div', { class: 'note note-tight' },
-          '太阳位置采用截断的 VSOP87D 地球级数（误差约几角秒），月球位置采用 ELP-2000/82 截断级数（经度误差约 10 角秒）。'
-          + '行星位置来自 JPL 近似轨道根数（1800—2050 年有效，误差约 1 角分）。'
-          + '日出日落由太阳高度过 -0.833° 的时刻求根得到，与天文年历一致到分钟以内。'
-          + '日月食采用 Meeus《天文算法》第 54 章的方法，食甚时刻与已公布星表相差通常不超过 1 分钟；'
-          + '本地环境由日月视圆面的地平坐标几何直接计算。'),
-        el('div', { class: 'note note-tight' },
-          '木星的四颗伽利略卫星使用真实平黄经，其余卫星、矮行星的轨道要素为实测值但历元相位为近似值，'
-          + '小行星带与柯伊伯带为按真实分布统计生成的示意群体。'),
+        el('h3', { class: 'info-h3' }, t('help.accuracy')),
+        el('div', { class: 'note note-tight' }, t('help.accuracy.ephemeris')),
+        el('div', { class: 'note note-tight' }, t('help.accuracy.approx')),
       ),
     );
   }

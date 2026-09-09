@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TimeController } from '../src/app/TimeController';
+import { setLanguage } from '../src/i18n';
 import { utcToJD } from '../src/astro/time';
 
 describe('time control', () => {
@@ -34,11 +35,14 @@ describe('time control', () => {
     expect(time.reversed).toBe(false);
   });
 
-  it('labels the direction', () => {
-    const time = new TimeController();
-    expect(time.speedLabel).not.toContain('倒放');
-    time.toggleDirection();
-    expect(time.speedLabel).toContain('倒放');
+  it('labels the direction in either language', () => {
+    for (const [lang, marker] of [['zh', '倒放'], ['en', 'reversed']] as const) {
+      setLanguage(lang);
+      const time = new TimeController();
+      expect(time.speedLabel, lang).not.toContain(marker);
+      time.toggleDirection();
+      expect(time.speedLabel, lang).toContain(marker);
+    }
   });
 
   it('leaves stepping and jumping unaffected by direction', () => {

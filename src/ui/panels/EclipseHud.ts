@@ -5,16 +5,20 @@
 import type { EclipseOverlay } from '../../app/EclipseWatcher';
 import { el } from '../dom';
 import { formatClock, formatDate } from '../format';
+import { type StringKey, t } from '../../i18n';
 
-const TYPE_NAMES: Record<string, string> = {
-  total: '日全食', annular: '日环食', hybrid: '全环食', partial: '日偏食',
+const TYPE_KEYS: Record<string, StringKey> = {
+  total: 'eclipse.solar.total', annular: 'eclipse.solar.annular',
+  hybrid: 'eclipse.solar.hybrid', partial: 'eclipse.solar.partial',
 };
 
 function formatDuration(seconds: number): string {
   if (seconds <= 0) return '—';
   const minutes = Math.floor(seconds / 60);
   const rest = Math.round(seconds % 60);
-  return minutes > 0 ? `${minutes} 分 ${rest} 秒` : `${rest} 秒`;
+  return minutes > 0
+    ? t('eclipseHud.minutesSeconds', { minutes, seconds: rest })
+    : t('eclipseHud.seconds', { seconds: rest });
 }
 
 function formatLatitude(value: number): string {
@@ -58,31 +62,41 @@ export class EclipseHud {
     const key = `${eclipse.jdMax}|${offset}`;
     if (key !== this.lastKey) {
       this.lastKey = key;
-      this.titleEl.textContent =
-        `${TYPE_NAMES[eclipse.type] ?? '日食'}进行中 · ${formatDate(eclipse.jdMax, offset)}`;
+      const typeKey = TYPE_KEYS[eclipse.type];
+      this.titleEl.textContent = t('eclipseHud.running', {
+        type: typeKey ? t(typeKey) : t('eclipseHud.fallbackType'),
+        date: formatDate(eclipse.jdMax, offset),
+      });
     }
 
     // An annular eclipse leaves a ring of Sun showing, so its central shadow is
     // never "full" - the wording follows the kind of eclipse it actually is.
     const annular = eclipse.type === 'annular' || current.annular;
-    const shadowName = annular ? '环影' : '本影';
+    const shadowName = t(annular ? 'eclipseHud.antumbra' : 'eclipseHud.umbra');
+    const position = `${formatLatitude(current.latitude)} ${formatLongitude(current.longitude)}`;
+    const coverage = t('eclipseHud.coverageValue', { percent: (current.coverage * 100).toFixed(1) });
     const rows: Array<[string, string]> = [];
     if (current.central) {
-      rows.push([`${shadowName}位置`, `${formatLatitude(current.latitude)} ${formatLongitude(current.longitude)}`]);
-      rows.push(['当前食带宽度', `${current.umbraWidthKm.toFixed(0)} 公里`]);
-      rows.push(['该处食分', `遮挡 ${(current.coverage * 100).toFixed(1)}%`]);
+      rows.push([t('eclipseHud.shadowPosition', { shadow: shadowName }), position]);
+      rows.push([t('eclipseHud.pathWidth'), t('eclipseHud.km', { value: current.umbraWidthKm.toFixed(0) })]);
+      rows.push([t('eclipseHud.coverage'), coverage]);
     } else {
-      rows.push(['影锥中心', `${formatLatitude(current.latitude)} ${formatLongitude(current.longitude)}`]);
-      rows.push(['该处食分', `遮挡 ${(current.coverage * 100).toFixed(1)}%`]);
+      rows.push([t('eclipseHud.axisPosition'), position]);
+      rows.push([t('eclipseHud.coverage'), coverage]);
     }
     if (path.centralStart !== undefined) {
-      rows.push([annular ? '最长环食' : '最长全食', formatDuration(path.maxDurationSeconds)]);
-      rows.push(['食带最宽', `${path.maxWidthKm.toFixed(0)} 公里`]);
-      rows.push(['中心食时段', `${formatClock(path.centralStart, offset)} — ${formatClock(path.centralEnd as number, offset)}`]);
+      rows.push([
+        t(annular ? 'eclipseHud.longestAnnular' : 'eclipseHud.longestTotal'),
+        formatDuration(path.maxDurationSeconds),
+      ]);
+      rows.push([t('eclipseHud.maxWidth'), t('eclipseHud.km', { value: path.maxWidthKm.toFixed(0) })]);
+      rows.push([t('eclipseHud.centralWindow'),
+        `${formatClock(path.centralStart, offset)} — ${formatClock(path.centralEnd as number, offset)}`]);
     } else {
-      rows.push(['类型', '影锥未触及地表，全球仅见偏食']);
+      rows.push([t('eclipseHud.type'), t('eclipseHud.partialOnly')]);
     }
-    rows.push(['偏食时段', `${formatClock(path.penumbraStart, offset)} — ${formatClock(path.penumbraEnd, offset)}`]);
+    rows.push([t('eclipseHud.partialWindow'),
+      `${formatClock(path.penumbraStart, offset)} — ${formatClock(path.penumbraEnd, offset)}`]);
 
     this.rowsEl.replaceChildren(
       ...rows.map(([label, value]) =>

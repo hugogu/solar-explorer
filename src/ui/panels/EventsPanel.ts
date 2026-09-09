@@ -11,6 +11,7 @@ import { AppState, PRESET_LOCATIONS } from '../../app/AppState';
 import { BODY_BY_ID, BodyInfo } from '../../data';
 import { ICONS, clear, el, icon } from '../dom';
 import { formatClock, formatDate, formatDistanceAu, formatDurationDays, formatOffset } from '../format';
+import { type StringKey, t, tr } from '../../i18n';
 import { DayEvents, dayEvents } from '../../astro/riseset';
 import {
   ApsisEvent, ElongationEvent, elongationFromEarth, nextApsides, nextElongationEvents,
@@ -23,20 +24,26 @@ import { moonPhase, moonPosition } from '../../astro/moon';
 import { nextSolarLongitude, sunPosition } from '../../astro/sun';
 import { jdToTT, ttToJD } from '../../astro/time';
 
-const SOLAR_TYPE_NAMES: Record<string, string> = {
-  total: '日全食', annular: '日环食', hybrid: '全环食', partial: '日偏食',
+const SOLAR_TYPE_KEYS: Record<string, StringKey> = {
+  total: 'eclipse.solar.total', annular: 'eclipse.solar.annular',
+  hybrid: 'eclipse.solar.hybrid', partial: 'eclipse.solar.partial',
 };
-const LUNAR_TYPE_NAMES: Record<string, string> = {
-  total: '月全食', partial: '月偏食', penumbral: '半影月食',
+const LUNAR_TYPE_KEYS: Record<string, StringKey> = {
+  total: 'eclipse.lunar.total', partial: 'eclipse.lunar.partial',
+  penumbral: 'eclipse.lunar.penumbral',
 };
-const ELONGATION_NAMES: Record<ElongationEvent['kind'], string> = {
-  opposition: '冲（整夜可见，最亮）',
-  conjunction: '合（被太阳淹没）',
-  inferiorConjunction: '下合（经过太阳与地球之间）',
-  superiorConjunction: '上合（运行到太阳背后）',
-  greatestElongationEast: '东大距（傍晚西方天空）',
-  greatestElongationWest: '西大距（黎明东方天空）',
+const ELONGATION_KEYS: Record<ElongationEvent['kind'], StringKey> = {
+  opposition: 'elongation.opposition',
+  conjunction: 'elongation.conjunction',
+  inferiorConjunction: 'elongation.inferiorConjunction',
+  superiorConjunction: 'elongation.superiorConjunction',
+  greatestElongationEast: 'elongation.greatestElongationEast',
+  greatestElongationWest: 'elongation.greatestElongationWest',
 };
+const SEASON_KEYS: StringKey[] = [
+  'season.marchEquinox', 'season.juneSolstice',
+  'season.septemberEquinox', 'season.decemberSolstice',
+];
 
 export interface EventsCallbacks {
   /** set the scene up to actually watch an eclipse happen */
@@ -57,6 +64,7 @@ export class EventsPanel {
   private lastComputeAt = 0;
   private eclipseSection: HTMLElement | null = null;
   private eclipseKey = '';
+  private readonly off: Array<() => void> = [];
 
   constructor(
     private readonly state: AppState,
@@ -64,9 +72,14 @@ export class EventsPanel {
   ) {
     this.bodyEl = el('div', { class: 'events-body' });
     this.element = el('div', { class: 'panel events-panel' }, this.bodyEl);
-    state.on('selection', () => this.update(true));
-    state.on('observer', () => this.update(true));
+    this.off.push(state.on('selection', () => this.update(true)));
+    this.off.push(state.on('observer', () => this.update(true)));
     this.update(true);
+  }
+
+  dispose(): void {
+    for (const off of this.off) off();
+    this.off.length = 0;
   }
 
   /** The body whose events are on show; defaults to the Earth. */
@@ -111,17 +124,17 @@ export class EventsPanel {
 
     this.bodyEl.appendChild(
       el('div', { class: 'events-head' },
-        el('span', { class: 'events-head-name' }, info.name),
-        el('span', { class: 'events-head-sub' }, '的事件'),
+        el('span', { class: 'events-head-name' }, tr(info.name)),
+        el('span', { class: 'events-head-sub' }, t('events.of')),
         this.state.settings.selected
           ? null
-          : el('span', { class: 'events-head-hint' }, '（未选中天体，默认显示地球）'),
+          : el('span', { class: 'events-head-hint' }, t('events.defaultHint')),
       ),
     );
 
     if (info.kind === 'star') {
       this.renderSeasons();
-      this.renderOrbitalEvents('earth', '地球的近日点与远日点');
+      this.renderOrbitalEvents('earth', t('events.earthApsides'));
       return;
     }
 
@@ -136,11 +149,13 @@ export class EventsPanel {
   private renderSurfaceSection(info: BodyInfo): void {
     const isEarth = info.id === 'earth';
     this.bodyEl.appendChild(
-      el('div', { class: 'panel-title' }, icon(ICONS.location, 14), isEarth ? '观测地点' : `${info.name}上的观测点`),
+      el('div', { class: 'panel-title' }, icon(ICONS.location, 14),
+        isEarth ? t('events.observerPoint') : t('events.observerPointOn', { body: tr(info.name) })),
     );
     this.bodyEl.appendChild(this.locationControls(info));
     this.bodyEl.appendChild(
-      el('div', { class: 'panel-title' }, icon(ICONS.clock, 14), isEarth ? '当日日出日落' : '日出日落'),
+      el('div', { class: 'panel-title' }, icon(ICONS.clock, 14),
+        isEarth ? t('events.riseSetToday') : t('events.riseSet')),
     );
     if (isEarth) this.renderEarthDay();
     else this.renderGenericDay(info);
@@ -152,11 +167,11 @@ export class EventsPanel {
 
     const latInput = el('input', {
       type: 'number', class: 'field field-num', step: '0.0001', min: '-90', max: '90',
-      'aria-label': '纬度', value: point.latitude.toFixed(4),
+      'aria-label': t('events.latitude'), value: point.latitude.toFixed(4),
     });
     const lonInput = el('input', {
       type: 'number', class: 'field field-num', step: '0.0001', min: '-180', max: '180',
-      'aria-label': '经度', value: point.longitude.toFixed(4),
+      'aria-label': t('events.longitude'), value: point.longitude.toFixed(4),
     });
     const apply = () => {
       const latitude = Math.max(-90, Math.min(90, Number(latInput.value)));
@@ -164,7 +179,7 @@ export class EventsPanel {
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
       if (isEarth) {
         this.state.setObserver({
-          name: '自定义', latitude, longitude, elevation: 0,
+          name: { zh: '自定义', en: 'Custom' }, latitude, longitude, elevation: 0,
           offsetHours: Math.round(longitude / 15),
         });
       } else {
@@ -179,33 +194,33 @@ export class EventsPanel {
     const rows: HTMLElement[] = [];
     if (isEarth) {
       const select = el('select', {
-        class: 'field', 'aria-label': '观测地点',
+        class: 'field', 'aria-label': t('events.observerPoint'),
         onchange: () => {
           if (select.value === 'custom') return;
           this.state.setObserver({ ...PRESET_LOCATIONS[Number(select.value)] });
           this.callbacks.onShowLocation('earth');
         },
-      }, ...PRESET_LOCATIONS.map((p, i) => el('option', { value: String(i) }, p.name)),
-         el('option', { value: 'custom' }, '自定义坐标…'));
-      const index = PRESET_LOCATIONS.findIndex((p) => p.name === this.state.observer.name);
+      }, ...PRESET_LOCATIONS.map((p, i) => el('option', { value: String(i) }, tr(p.name))),
+         el('option', { value: 'custom' }, t('events.customCoords')));
+      const index = PRESET_LOCATIONS.findIndex((p) => p.name.en === this.state.observer.name.en);
       select.value = index >= 0 ? String(index) : 'custom';
       rows.push(el('div', { class: 'location-row' },
         select,
         el('button', {
           class: 'btn btn-ghost btn-small',
-          title: '使用设备定位',
+          title: t('events.locateTitle'),
           onclick: () => this.useGeolocation(),
-        }, '定位'),
+        }, t('events.locate')),
       ));
     }
     rows.push(el('div', { class: 'location-row' },
-      el('label', { class: 'field-label' }, '纬度', latInput),
-      el('label', { class: 'field-label' }, '经度', lonInput),
+      el('label', { class: 'field-label' }, t('events.latitude'), latInput),
+      el('label', { class: 'field-label' }, t('events.longitude'), lonInput),
       el('button', {
         class: 'btn btn-ghost btn-small',
-        title: '把镜头转到这个位置',
+        title: t('events.locateHereTitle'),
         onclick: () => this.callbacks.onShowLocation(info.id),
-      }, '定位到此'),
+      }, t('events.locateHere')),
     ));
     return el('div', {}, ...rows);
   }
@@ -215,7 +230,7 @@ export class EventsPanel {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         this.state.setObserver({
-          name: '我的位置',
+          name: { zh: '我的位置', en: 'My location' },
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           elevation: position.coords.altitude ?? 0,
@@ -224,7 +239,7 @@ export class EventsPanel {
         this.callbacks.onShowLocation('earth');
       },
       () => {
-        this.bodyEl.prepend(el('div', { class: 'note' }, '无法获取定位权限，请手动输入坐标。'));
+        this.bodyEl.prepend(el('div', { class: 'note' }, t('events.geolocationDenied')));
       },
       { timeout: 8000 },
     );
@@ -241,30 +256,38 @@ export class EventsPanel {
     const phase = moonPhase(jdtt, sun.lon, sun.dist);
 
     if (events.polarDay) {
-      this.bodyEl.appendChild(el('div', { class: 'highlight' }, '极昼：太阳整日不落'));
+      this.bodyEl.appendChild(el('div', { class: 'highlight' }, t('events.polarDay')));
     } else if (events.polarNight) {
-      this.bodyEl.appendChild(el('div', { class: 'highlight' }, '极夜：太阳整日不升'));
+      this.bodyEl.appendChild(el('div', { class: 'highlight' }, t('events.polarNight')));
     }
 
     this.bodyEl.appendChild(table([
-      ['日出', formatClock(events.sunrise, offset)],
-      ['正午（上中天）', formatClock(events.solarNoon, offset)],
-      ['日落', formatClock(events.sunset, offset)],
-      ['昼长', events.dayLength
-        ? `${Math.floor(events.dayLength)} 小时 ${Math.round((events.dayLength % 1) * 60)} 分`
+      [t('events.sunrise'), formatClock(events.sunrise, offset)],
+      [t('events.solarNoon'), formatClock(events.solarNoon, offset)],
+      [t('events.sunset'), formatClock(events.sunset, offset)],
+      [t('events.dayLength'), events.dayLength
+        ? t('events.dayLengthValue', {
+          hours: Math.floor(events.dayLength),
+          minutes: Math.round((events.dayLength % 1) * 60),
+        })
         : '—'],
-      ['正午太阳高度', `${events.maxSunAltitude.toFixed(2)}°`],
-      ['民用晨光 / 昏影', `${formatClock(events.civilDawn, offset)} / ${formatClock(events.civilDusk, offset)}`],
-      ['航海晨光 / 昏影', `${formatClock(events.nauticalDawn, offset)} / ${formatClock(events.nauticalDusk, offset)}`],
-      ['天文晨光 / 昏影', `${formatClock(events.astronomicalDawn, offset)} / ${formatClock(events.astronomicalDusk, offset)}`],
-      ['月出 / 月落', `${formatClock(events.moonrise, offset)} / ${formatClock(events.moonset, offset)}`],
-      ['月相', `照亮 ${(phase.illumination * 100).toFixed(0)}% · 月龄 ${phase.ageDays.toFixed(1)} 天`],
+      [t('events.noonAltitude'), `${events.maxSunAltitude.toFixed(2)}°`],
+      [t('events.civilTwilight'), `${formatClock(events.civilDawn, offset)} / ${formatClock(events.civilDusk, offset)}`],
+      [t('events.nauticalTwilight'), `${formatClock(events.nauticalDawn, offset)} / ${formatClock(events.nauticalDusk, offset)}`],
+      [t('events.astronomicalTwilight'), `${formatClock(events.astronomicalDawn, offset)} / ${formatClock(events.astronomicalDusk, offset)}`],
+      [t('events.moonRiseSet'), `${formatClock(events.moonrise, offset)} / ${formatClock(events.moonset, offset)}`],
+      [t('live.moonPhase'), t('events.moonPhaseSummary', {
+        percent: (phase.illumination * 100).toFixed(0), days: phase.ageDays.toFixed(1),
+      })],
     ]));
     this.bodyEl.appendChild(el('div', { class: 'events-foot' },
-      `${formatDate(time.jd, offset)} · ${observer.name} ${observer.latitude.toFixed(3)}°, ${observer.longitude.toFixed(3)}° · ${formatOffset(offset)}`));
+      `${formatDate(time.jd, offset)} · ${tr(observer.name)} ${observer.latitude.toFixed(3)}°, ${observer.longitude.toFixed(3)}° · ${formatOffset(offset)}`));
 
     const jump = el('div', { class: 'chip-row' });
-    for (const [label, jd] of [['跳到日出', events.sunrise], ['跳到日落', events.sunset]] as Array<[string, number | undefined]>) {
+    for (const [label, jd] of [
+      [t('events.jumpToSunrise'), events.sunrise],
+      [t('events.jumpToSunset'), events.sunset],
+    ] as Array<[string, number | undefined]>) {
       if (jd === undefined) continue;
       jump.appendChild(el('button', { class: 'chip', onclick: () => this.jumpTo(jd) }, label));
     }
@@ -279,32 +302,38 @@ export class EventsPanel {
       jdToTT(this.state.time.jd),
     );
     if (!events) {
-      this.bodyEl.appendChild(el('div', { class: 'note' }, '该天体的自转数据不足以计算日出日落。'));
+      this.bodyEl.appendChild(el('div', { class: 'note' }, t('events.noRotation')));
       return;
     }
 
     if (events.polarDay) {
-      this.bodyEl.appendChild(el('div', { class: 'highlight' }, '此刻该点处于极昼：太阳不落'));
+      this.bodyEl.appendChild(el('div', { class: 'highlight' }, t('events.polarDayHere')));
     } else if (events.polarNight) {
-      this.bodyEl.appendChild(el('div', { class: 'highlight' }, '此刻该点处于极夜：太阳不升'));
+      this.bodyEl.appendChild(el('div', { class: 'highlight' }, t('events.polarNightHere')));
     }
 
     const solarDayHours = events.solarDayDays * 24;
     this.bodyEl.appendChild(table([
-      ['下次日出', events.sunrise ? formatDate(ttToJD(events.sunrise), offset) + ' ' + formatClock(ttToJD(events.sunrise), offset) : '—'],
-      ['太阳上中天', events.noon ? formatDate(ttToJD(events.noon), offset) + ' ' + formatClock(ttToJD(events.noon), offset) : '—'],
-      ['下次日落', events.sunset ? formatDate(ttToJD(events.sunset), offset) + ' ' + formatClock(ttToJD(events.sunset), offset) : '—'],
-      ['白昼时长', events.daylightHours > 0 ? formatDurationDays(events.daylightHours / 24) : '—'],
-      ['正午太阳高度', `${events.maxAltitude.toFixed(2)}°`],
-      ['一个太阳日', solarDayHours < 72
-        ? `${solarDayHours.toFixed(2)} 小时`
-        : `${events.solarDayDays.toFixed(2)} 个地球日`],
+      [t('events.nextSunrise'), events.sunrise ? formatDate(ttToJD(events.sunrise), offset) + ' ' + formatClock(ttToJD(events.sunrise), offset) : '—'],
+      [t('events.solarTransit'), events.noon ? formatDate(ttToJD(events.noon), offset) + ' ' + formatClock(ttToJD(events.noon), offset) : '—'],
+      [t('events.nextSunset'), events.sunset ? formatDate(ttToJD(events.sunset), offset) + ' ' + formatClock(ttToJD(events.sunset), offset) : '—'],
+      [t('events.daylight'), events.daylightHours > 0 ? formatDurationDays(events.daylightHours / 24) : '—'],
+      [t('events.noonAltitude'), `${events.maxAltitude.toFixed(2)}°`],
+      [t('events.solarDay'), solarDayHours < 72
+        ? t('events.solarDayHours', { hours: solarDayHours.toFixed(2) })
+        : t('events.solarDayDays', { days: events.solarDayDays.toFixed(2) })],
     ]));
     this.bodyEl.appendChild(el('div', { class: 'events-foot' },
-      `观测点 ${point.latitude.toFixed(2)}°, ${point.longitude.toFixed(2)}° · 时刻按${formatOffset(offset)}显示`));
+      t('events.pointFooter', {
+        latitude: point.latitude.toFixed(2), longitude: point.longitude.toFixed(2),
+        offset: formatOffset(offset),
+      })));
 
     const jump = el('div', { class: 'chip-row' });
-    for (const [label, jd] of [['跳到日出', events.sunrise], ['跳到日落', events.sunset]] as Array<[string, number | undefined]>) {
+    for (const [label, jd] of [
+      [t('events.jumpToSunrise'), events.sunrise],
+      [t('events.jumpToSunset'), events.sunset],
+    ] as Array<[string, number | undefined]>) {
       if (jd === undefined) continue;
       jump.appendChild(el('button', { class: 'chip', onclick: () => this.jumpTo(ttToJD(jd)) }, label));
     }
@@ -331,10 +360,13 @@ export class EventsPanel {
     if (!this.eclipseSection || key !== this.eclipseKey) {
       this.eclipseKey = key;
       this.eclipseSection = el('div', {},
-        el('div', { class: 'panel-title' }, icon(ICONS.eclipse, 14), '未来的日食与月食'),
+        el('div', { class: 'panel-title' }, icon(ICONS.eclipse, 14), t('events.eclipses')),
         ...findEclipses(time.jd, { limit: 6 }).map((eclipse) => this.eclipseCard(eclipse)),
-        el('div', { class: 'events-foot' },
-          `本地可见性按 ${observer.name}（${observer.latitude.toFixed(2)}°, ${observer.longitude.toFixed(2)}°）计算`),
+        el('div', { class: 'events-foot' }, t('events.eclipseVisibility', {
+          name: tr(observer.name),
+          latitude: observer.latitude.toFixed(2),
+          longitude: observer.longitude.toFixed(2),
+        })),
       );
     }
     this.bodyEl.appendChild(this.eclipseSection);
@@ -344,53 +376,79 @@ export class EventsPanel {
     const { observer } = this.state;
     const offset = observer.offsetHours;
     const isSolar = eclipse.kind === 'solar';
-    const typeName = isSolar
-      ? SOLAR_TYPE_NAMES[(eclipse as SolarEclipse).type]
-      : LUNAR_TYPE_NAMES[(eclipse as LunarEclipse).type];
+    const typeName = t(isSolar
+      ? SOLAR_TYPE_KEYS[(eclipse as SolarEclipse).type]
+      : LUNAR_TYPE_KEYS[(eclipse as LunarEclipse).type]);
 
     const lines: HTMLElement[] = [];
     if (isSolar) {
       const solar = eclipse as SolarEclipse;
       const local = localSolarCircumstances(solar, observer);
-      lines.push(el('div', { class: 'eclipse-line' },
-        `全球食甚：${formatDate(solar.jdMax, offset)} ${formatClock(solar.jdMax, offset)}（${formatOffset(offset)}）`));
-      lines.push(el('div', { class: 'eclipse-line' },
-        `食甚点：${solar.greatestAt.latitude.toFixed(1)}°, ${solar.greatestAt.longitude.toFixed(1)}° · γ=${solar.gamma.toFixed(3)}`));
+      lines.push(el('div', { class: 'eclipse-line' }, t('events.globalGreatest', {
+        date: formatDate(solar.jdMax, offset), time: formatClock(solar.jdMax, offset),
+        offset: formatOffset(offset),
+      })));
+      lines.push(el('div', { class: 'eclipse-line' }, t('events.greatestPoint', {
+        latitude: solar.greatestAt.latitude.toFixed(1),
+        longitude: solar.greatestAt.longitude.toFixed(1),
+        gamma: solar.gamma.toFixed(3),
+      })));
       if (local.visible && local.magnitude > 0) {
-        const kind = local.type === 'total' ? '全食' : local.type === 'annular' ? '环食' : '偏食';
-        lines.push(el('div', { class: 'eclipse-local is-visible' },
-          `${observer.name}可见${kind}：食分 ${local.magnitude.toFixed(3)}，遮挡 ${(local.obscuration * 100).toFixed(1)}%`));
-        lines.push(el('div', { class: 'eclipse-line' },
-          `初亏 ${formatClock(local.firstContact, offset)} · 食甚 ${formatClock(local.jdMax, offset)} · 复圆 ${formatClock(local.lastContact, offset)}`));
+        const kind = t(local.type === 'total' ? 'eclipse.local.total'
+          : local.type === 'annular' ? 'eclipse.local.annular' : 'eclipse.local.partial');
+        lines.push(el('div', { class: 'eclipse-local is-visible' }, t('events.localVisible', {
+          name: tr(observer.name), kind,
+          magnitude: local.magnitude.toFixed(3),
+          obscuration: (local.obscuration * 100).toFixed(1),
+        })));
+        lines.push(el('div', { class: 'eclipse-line' }, t('events.contacts', {
+          first: formatClock(local.firstContact, offset),
+          max: formatClock(local.jdMax, offset),
+          last: formatClock(local.lastContact, offset),
+        })));
         if (local.centralStart && local.centralEnd) {
-          lines.push(el('div', { class: 'eclipse-line' },
-            `${kind}持续 ${((local.centralEnd - local.centralStart) * 86400).toFixed(0)} 秒`));
+          lines.push(el('div', { class: 'eclipse-line' }, t('events.centralDuration', {
+            kind, seconds: ((local.centralEnd - local.centralStart) * 86400).toFixed(0),
+          })));
         }
       } else {
         lines.push(el('div', { class: 'eclipse-local' },
           local.magnitude > 0
-            ? `${observer.name}不可见：食甚时太阳在地平线下 ${Math.abs(local.sunAltitude).toFixed(0)}°`
-            : `${observer.name}不可见：此地不在食带范围内`));
+            ? t('events.belowHorizon', {
+              name: tr(observer.name), altitude: Math.abs(local.sunAltitude).toFixed(0),
+            })
+            : t('events.outsidePath', { name: tr(observer.name) })));
       }
     } else {
       const lunar = eclipse as LunarEclipse;
       const visibility = lunarEclipseVisible(lunar, observer);
-      lines.push(el('div', { class: 'eclipse-line' },
-        `食甚：${formatDate(lunar.jdMax, offset)} ${formatClock(lunar.jdMax, offset)}（${formatOffset(offset)}）`));
+      lines.push(el('div', { class: 'eclipse-line' }, t('events.lunarGreatest', {
+        date: formatDate(lunar.jdMax, offset), time: formatClock(lunar.jdMax, offset),
+        offset: formatOffset(offset),
+      })));
       if (lunar.umbralMagnitude > 0) {
+        const partial = lunar.semiDurationPartial
+          ? t('events.partialDuration', {
+            duration: formatDurationDays((lunar.semiDurationPartial * 2) / 1440),
+          })
+          : '';
         lines.push(el('div', { class: 'eclipse-line' },
-          `本影食分 ${lunar.umbralMagnitude.toFixed(3)}${lunar.semiDurationPartial ? ` · 偏食持续 ${formatDurationDays((lunar.semiDurationPartial * 2) / 1440)}` : ''}`));
+          t('events.umbralMagnitude', { magnitude: lunar.umbralMagnitude.toFixed(3) }) + partial));
       } else {
-        lines.push(el('div', { class: 'eclipse-line' }, `半影食分 ${lunar.penumbralMagnitude.toFixed(3)}`));
+        lines.push(el('div', { class: 'eclipse-line' },
+          t('events.penumbralMagnitude', { magnitude: lunar.penumbralMagnitude.toFixed(3) })));
       }
       if (lunar.semiDurationTotal) {
-        lines.push(el('div', { class: 'eclipse-line' },
-          `全食持续 ${formatDurationDays((lunar.semiDurationTotal * 2) / 1440)}`));
+        lines.push(el('div', { class: 'eclipse-line' }, t('events.totalDuration', {
+          duration: formatDurationDays((lunar.semiDurationTotal * 2) / 1440),
+        })));
       }
       lines.push(el('div', { class: visibility.visible ? 'eclipse-local is-visible' : 'eclipse-local' },
         visibility.visible
-          ? `${observer.name}可见（食甚时月亮高度 ${visibility.moonAltitude.toFixed(0)}°）`
-          : `${observer.name}不可见（食甚时月亮在地平线下）`));
+          ? t('events.lunarVisible', {
+            name: tr(observer.name), altitude: visibility.moonAltitude.toFixed(0),
+          })
+          : t('events.lunarNotVisible', { name: tr(observer.name) })));
     }
 
     return el('div', { class: `eclipse-card ${isSolar ? 'is-solar' : 'is-lunar'}` },
@@ -399,9 +457,9 @@ export class EventsPanel {
         el('span', { class: 'eclipse-date' }, formatDate(eclipse.jdMax, offset)),
         el('button', {
           class: 'chip chip-small',
-          title: '把时间调到食甚并把镜头对准影子',
+          title: t('events.watchIn3dTitle'),
           onclick: () => this.callbacks.onWatchEclipse(eclipse),
-        }, '在 3D 中观看'),
+        }, t('events.watchIn3d')),
       ),
       ...lines,
     );
@@ -409,7 +467,7 @@ export class EventsPanel {
 
   // ------------------------------------------------------------ orbit events
 
-  private renderOrbitalEvents(id: string, title = '轨道事件'): void {
+  private renderOrbitalEvents(id: string, title = t('events.orbital')): void {
     const offset = this.state.observer.offsetHours;
     const jdtt = jdToTT(this.state.time.jd);
     const info = BODY_BY_ID.get(id);
@@ -425,23 +483,31 @@ export class EventsPanel {
     const rows: Array<[string, string]> = [];
     for (const apsis of apsides) {
       rows.push([
-        apsis.kind === 'perihelion' ? '下次过近日点' : '下次过远日点',
-        `${formatDate(ttToJD(apsis.jd), offset)} · ${apsis.distanceAu.toFixed(4)} AU`,
+        t(apsis.kind === 'perihelion' ? 'events.nextPerihelion' : 'events.nextAphelion'),
+        t('events.apsisValue', {
+          date: formatDate(ttToJD(apsis.jd), offset), distance: apsis.distanceAu.toFixed(4),
+        }),
       ]);
     }
     const current = elongationFromEarth(id, jdtt);
     if (current && id !== 'earth') {
-      rows.push(['当前距角', `${current.elongation.toFixed(1)}° · 距地球 ${formatDistanceAu(current.distanceAu)}`]);
+      rows.push([t('events.currentElongation'), t('events.currentElongationValue', {
+        elongation: current.elongation.toFixed(1), distance: formatDistanceAu(current.distanceAu),
+      })]);
     }
     this.bodyEl.appendChild(table(rows));
 
     for (const event of elongations.slice(0, 3)) {
       this.bodyEl.appendChild(
         el('div', { class: 'event-row' },
-          el('div', { class: 'event-kind' }, ELONGATION_NAMES[event.kind]),
-          el('div', { class: 'event-when' },
-            `${formatDate(ttToJD(event.jd), offset)} · 距角 ${event.elongation.toFixed(1)}° · 距地球 ${event.distanceAu.toFixed(3)} AU`),
-          el('button', { class: 'chip chip-small', onclick: () => this.jumpTo(ttToJD(event.jd)) }, '跳转'),
+          el('div', { class: 'event-kind' }, t(ELONGATION_KEYS[event.kind])),
+          el('div', { class: 'event-when' }, t('events.elongationWhen', {
+            date: formatDate(ttToJD(event.jd), offset),
+            elongation: event.elongation.toFixed(1),
+            distance: event.distanceAu.toFixed(3),
+          })),
+          el('button', { class: 'chip chip-small', onclick: () => this.jumpTo(ttToJD(event.jd)) },
+            t('events.jump')),
         ),
       );
     }
@@ -458,28 +524,33 @@ export class EventsPanel {
     let current = distance(jdtt + step);
     for (let jd = jdtt + step; jd < jdtt + 60 && found.length < 2; jd += step) {
       const next = distance(jd + step);
-      if (current < previous && current < next) found.push(['下次过近地点', jd, current]);
-      else if (current > previous && current > next) found.push(['下次过远地点', jd, current]);
+      if (current < previous && current < next) found.push([t('events.nextPerigee'), jd, current]);
+      else if (current > previous && current > next) found.push([t('events.nextApogee'), jd, current]);
       previous = current;
       current = next;
     }
     if (found.length === 0) return;
-    this.bodyEl.appendChild(el('div', { class: 'panel-title' }, icon(ICONS.globe, 14), '近地点与远地点'));
-    this.bodyEl.appendChild(table(found.map(([label, jd, km]) =>
-      [label, `${formatDate(ttToJD(jd), offset)} · ${Math.round(km).toLocaleString('en-US')} 公里`] as [string, string])));
+    this.bodyEl.appendChild(
+      el('div', { class: 'panel-title' }, icon(ICONS.globe, 14), t('events.lunarApsides')));
+    this.bodyEl.appendChild(table(found.map(([label, jd, km]) => [
+      label,
+      t('events.perigeeValue', {
+        date: formatDate(ttToJD(jd), offset), km: Math.round(km).toLocaleString('en-US'),
+      }),
+    ] as [string, string])));
   }
 
   /** For the Sun: the moments that define the Earth's seasons. */
   private renderSeasons(): void {
     const offset = this.state.observer.offsetHours;
-    const names = ['春分', '夏至', '秋分', '冬至'];
     const jdtt = jdToTT(this.state.time.jd);
-    const rows = names
-      .map((name, i) => ({ name, jd: nextSolarLongitude(i * 90, jdtt) }))
+    const rows = SEASON_KEYS
+      .map((key, i) => ({ name: t(key), jd: nextSolarLongitude(i * 90, jdtt) }))
       .sort((a, b) => a.jd - b.jd)
       .map(({ name, jd }) =>
         [name, `${formatDate(ttToJD(jd), offset)} ${formatClock(ttToJD(jd), offset)}`] as [string, string]);
-    this.bodyEl.appendChild(el('div', { class: 'panel-title' }, icon(ICONS.clock, 14), '接下来的二分二至（北半球）'));
+    this.bodyEl.appendChild(
+      el('div', { class: 'panel-title' }, icon(ICONS.clock, 14), t('events.seasons')));
     this.bodyEl.appendChild(table(rows));
   }
 

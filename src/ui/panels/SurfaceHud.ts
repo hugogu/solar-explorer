@@ -6,11 +6,12 @@ import { AppState } from '../../app/AppState';
 import type { Simulation } from '../../app/Simulation';
 import { BODY_BY_ID } from '../../data';
 import { el } from '../dom';
+import { type StringKey, t, tr } from '../../i18n';
 import { sunAltitude, moonAltitude } from '../../astro/riseset';
 
-const COMPASS: Array<[number, string]> = [
-  [0, '北'], [45, '东北'], [90, '东'], [135, '东南'],
-  [180, '南'], [225, '西南'], [270, '西'], [315, '西北'],
+const COMPASS: Array<[number, StringKey]> = [
+  [0, 'compass.n'], [45, 'compass.ne'], [90, 'compass.e'], [135, 'compass.se'],
+  [180, 'compass.s'], [225, 'compass.sw'], [270, 'compass.w'], [315, 'compass.nw'],
 ];
 
 export class SurfaceHud {
@@ -29,8 +30,8 @@ export class SurfaceHud {
       this.compassEl,
       el('div', { class: 'surface-card' },
         this.readoutEl,
-        el('div', { class: 'surface-note' }, '地表视角使用真实比例，日月的视直径与实际相同'),
-        el('button', { class: 'btn btn-small', onclick: () => onExit() }, '返回太空视角'),
+        el('div', { class: 'surface-note' }, t('surface.note')),
+        el('button', { class: 'btn btn-small', onclick: () => onExit() }, t('surface.exit')),
       ),
     );
     this.element.style.display = 'none';
@@ -48,19 +49,20 @@ export class SurfaceHud {
     const { observer, time } = this.state;
     const body = BODY_BY_ID.get(surface.bodyId);
     const rows: Array<[string, string]> = [
-      ['所在', `${body?.name ?? ''} · ${surface.latitude.toFixed(2)}°, ${surface.longitude.toFixed(2)}°`],
+      [t('surface.standingAt'),
+        `${body ? tr(body.name) : ''} · ${surface.latitude.toFixed(2)}°, ${surface.longitude.toFixed(2)}°`],
     ];
 
     if (surface.bodyId === 'earth') {
       const sun = sunAltitude(time.jd, observer);
       const moon = moonAltitude(time.jd, observer);
-      rows.push(['太阳高度', `${sun.altitude.toFixed(1)}° ${describeSun(sun.altitude)}`]);
-      rows.push(['月亮高度', `${moon.altitude.toFixed(1)}°`]);
+      rows.push([t('surface.sunAltitude'), `${sun.altitude.toFixed(1)}° ${describeSun(sun.altitude)}`]);
+      rows.push([t('surface.moonAltitude'), `${moon.altitude.toFixed(1)}°`]);
     }
 
     const simulation = this.getSimulation();
     const state = simulation.get(surface.bodyId);
-    if (state) rows.push(['当前自转角', `${state.meridian.toFixed(1)}°`]);
+    if (state) rows.push([t('surface.meridian'), `${state.meridian.toFixed(1)}°`]);
 
     this.readoutEl.replaceChildren(
       ...rows.map(([label, value]) =>
@@ -76,9 +78,9 @@ export class SurfaceHud {
   private drawCompass(): void {
     const heading = this.headingDegrees();
     this.compassEl.replaceChildren(
-      ...COMPASS.map(([angle, label]) => {
-        let delta = ((angle - heading + 540) % 360) - 180;
-        const mark = el('span', { class: 'compass-mark' }, label);
+      ...COMPASS.map(([angle, key]) => {
+        const delta = ((angle - heading + 540) % 360) - 180;
+        const mark = el('span', { class: 'compass-mark' }, t(key));
         mark.style.left = `${50 + (delta / 60) * 50}%`;
         mark.style.opacity = Math.abs(delta) > 60 ? '0' : String(1 - Math.abs(delta) / 80);
         return mark;
@@ -96,9 +98,9 @@ export class SurfaceHud {
 }
 
 function describeSun(altitude: number): string {
-  if (altitude > 0) return '（白昼）';
-  if (altitude > -6) return '（民用曙暮光）';
-  if (altitude > -12) return '（航海曙暮光）';
-  if (altitude > -18) return '（天文曙暮光）';
-  return '（夜）';
+  if (altitude > 0) return t('surface.daylight');
+  if (altitude > -6) return t('surface.civilTwilight');
+  if (altitude > -12) return t('surface.nauticalTwilight');
+  if (altitude > -18) return t('surface.astronomicalTwilight');
+  return t('surface.night');
 }

@@ -196,6 +196,9 @@ html, body {
 .btn-small { padding: 5px 9px; font-size: 11px; min-height: 28px; }
 .btn-block { width: 100%; }
 .icon-btn { padding: 7px; }
+/* Fixed width so swapping "English" for the shorter Chinese label does not
+   shuffle the buttons beside it. */
+.lang-btn { min-width: 62px; letter-spacing: 0.04em; }
 
 .field {
   background: rgba(8, 12, 20, 0.75);
@@ -637,19 +640,24 @@ input[type='range']::-moz-range-thumb {
 .ui-root.is-compact .dock { display: none; }
 .ui-root.is-compact .brand { display: none; }
 .ui-root.is-compact .topbar { gap: 8px; }
+.ui-root.is-compact .lang-btn { min-width: 0; padding: 6px 7px; }
 .ui-root.is-compact .time-panel {
   grid-template-columns: 1fr auto;
   grid-template-areas: 'readout controls' 'speed speed';
   gap: 8px;
-  padding: 8px 10px;
+  padding: 8px;
 }
 .ui-root.is-compact .time-readout { grid-area: readout; min-width: 0; }
 .ui-root.is-compact .time-main { flex-direction: column; align-items: flex-start; gap: 0; }
-.ui-root.is-compact .time-clock { font-size: 15px; }
-.ui-root.is-compact .time-date { font-size: 11px; }
+.ui-root.is-compact .time-clock { font-size: 14px; }
+.ui-root.is-compact .time-date { font-size: 10px; }
 .ui-root.is-compact .time-zone { font-size: 9px; }
 .ui-root.is-compact .btn { padding: 6px 8px; min-height: 30px; }
-.ui-root.is-compact .time-controls { gap: 4px; }
+/* The phone top bar is full: clock, five transport buttons, the language
+   switch and help all have to fit 375 px. Every pixel taken back here is a
+   pixel the clock needs, so the transport buttons run tighter than the rest. */
+.ui-root.is-compact .time-controls { gap: 3px; }
+.ui-root.is-compact .time-controls .btn { padding: 6px; }
 .ui-root.is-compact .time-controls { grid-area: controls; }
 .ui-root.is-compact .time-speed-row { grid-area: speed; }
 .ui-root.is-compact .time-jump { display: none; }

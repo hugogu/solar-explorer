@@ -3,6 +3,7 @@ import { AppState } from '../../app/AppState';
 import { SPEED_PRESETS } from '../../app/TimeController';
 import { ICONS, clear, el, icon } from '../dom';
 import { formatDate, formatClockSeconds, formatOffset, weekday } from '../format';
+import { t, tr } from '../../i18n';
 import { jdToDate, utcToJD } from '../../astro/time';
 
 export class TimePanel {
@@ -17,6 +18,7 @@ export class TimePanel {
   private readonly rangeWarning: HTMLElement;
   private readonly timeInput: HTMLInputElement;
   private editingDate = false;
+  private readonly off: Array<() => void> = [];
 
   constructor(private readonly state: AppState) {
     this.dateEl = el('div', { class: 'time-date' });
@@ -25,7 +27,7 @@ export class TimePanel {
 
     this.playButton = el('button', {
       class: 'btn btn-primary',
-      title: '播放 / 暂停（空格）',
+      title: t('time.playPause'),
       onclick: () => {
         this.state.time.toggle();
         this.renderPlayIcon();
@@ -37,8 +39,8 @@ export class TimePanel {
     // opposition.
     this.reverseButton = el('button', {
       class: 'btn btn-ghost',
-      title: '时间倒流（R）',
-      'aria-label': '时间倒流',
+      title: t('time.reverse'),
+      'aria-label': t('time.reverseLabel'),
       onclick: () => {
         this.state.time.toggleDirection();
         this.update();
@@ -52,22 +54,22 @@ export class TimePanel {
       step: '1',
       value: String(state.time.speedIndex),
       class: 'speed-slider',
-      'aria-label': '模拟速度',
+      'aria-label': t('time.speedLabel'),
       oninput: () => {
         this.state.time.speedIndex = Number(this.slider.value);
         this.update();
       },
     });
 
-    this.dateInput = el('input', { type: 'date', class: 'field', 'aria-label': '日期' });
-    this.timeInput = el('input', { type: 'time', class: 'field', step: '1', 'aria-label': '时间' });
+    this.dateInput = el('input', { type: 'date', class: 'field', 'aria-label': t('time.date') });
+    this.timeInput = el('input', { type: 'time', class: 'field', step: '1', 'aria-label': t('time.time') });
     for (const input of [this.dateInput, this.timeInput]) {
       input.addEventListener('focus', () => { this.editingDate = true; });
       input.addEventListener('blur', () => { this.editingDate = false; });
       input.addEventListener('change', () => this.applyDateInput());
     }
 
-    this.rangeWarning = el('div', { class: 'time-warning' }, '超出行星根数有效区间（1800—2050），位置仅供示意');
+    this.rangeWarning = el('div', { class: 'time-warning' }, t('time.rangeWarning'));
     this.rangeWarning.style.display = 'none';
 
     this.element = el(
@@ -77,21 +79,21 @@ export class TimePanel {
         'div',
         { class: 'time-readout' },
         el('div', { class: 'time-main' }, this.dateEl, this.clockEl),
-        el('div', { class: 'time-zone' }, `${state.observer.name} · ${formatOffset(state.observer.offsetHours)}`),
+        el('div', { class: 'time-zone' }, `${tr(state.observer.name)} · ${formatOffset(state.observer.offsetHours)}`),
         this.rangeWarning,
       ),
       el(
         'div',
         { class: 'time-controls' },
         this.reverseButton,
-        this.stepButton(ICONS.back, '后退一步', -1),
+        this.stepButton(ICONS.back, t('time.stepBack'), -1),
         this.playButton,
-        this.stepButton(ICONS.forward, '前进一步', 1),
+        this.stepButton(ICONS.forward, t('time.stepForward'), 1),
         el('button', {
           class: 'btn btn-ghost',
-          title: '回到此刻',
+          title: t('time.nowTitle'),
           onclick: () => { this.state.time.now(); this.update(); },
-        }, '现在'),
+        }, t('time.now')),
       ),
       el('div', { class: 'time-speed-row' }, this.slider, this.speedEl),
       el('div', { class: 'time-jump' }, this.dateInput, this.timeInput),
@@ -99,7 +101,12 @@ export class TimePanel {
 
     this.renderPlayIcon();
     this.update();
-    state.on('observer', () => this.update());
+    this.off.push(state.on('observer', () => this.update()));
+  }
+
+  dispose(): void {
+    for (const off of this.off) off();
+    this.off.length = 0;
   }
 
   private stepButton(path: string, title: string, direction: number): HTMLButtonElement {
@@ -137,7 +144,7 @@ export class TimePanel {
     this.element.classList.toggle('is-reversed', time.reversed);
     if (this.slider.value !== String(time.speedIndex)) this.slider.value = String(time.speedIndex);
     const zone = this.element.querySelector('.time-zone');
-    if (zone) zone.textContent = `${observer.name} · ${formatOffset(observer.offsetHours)}`;
+    if (zone) zone.textContent = `${tr(observer.name)} · ${formatOffset(observer.offsetHours)}`;
     if (!this.editingDate) {
       const d = jdToDate(time.jd + observer.offsetHours / 24);
       this.dateInput.value = d.toISOString().slice(0, 10);

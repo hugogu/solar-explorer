@@ -24,6 +24,7 @@ import { iauFrame, surfaceFrame } from './orientation';
 import { lunarPositionJ2000 } from '../astro/satellites';
 import { jdToTT } from '../astro/time';
 import { scheduleFrame } from '../app/schedule';
+import { tr } from '../i18n';
 import { J2000 } from '../astro/time';
 
 export interface SceneOptions {
@@ -92,12 +93,14 @@ export class Scene {
   private readonly ambient: THREE.AmbientLight;
   private readonly scaledPositions = new Map<string, THREE.Vector3>();
   private readonly preset: (typeof QUALITY_PRESETS)[keyof typeof QUALITY_PRESETS];
+  private readonly onSelect: (id: string) => void;
   private width = 1;
   private height = 1;
   private appliedScale: ScaleSettings | null = null;
 
   constructor(options: SceneOptions, photoMaps: Map<string, PhotoMaps>, jd: number) {
     this.preset = QUALITY_PRESETS[options.quality];
+    this.onSelect = options.onSelect;
 
     this.renderer = new THREE.WebGLRenderer({
       canvas: options.canvas,
@@ -141,9 +144,9 @@ export class Scene {
       this.scene.add(view.group);
       this.labels.ensure({
         id: info.id,
-        text: info.name,
+        text: tr(info.name),
         kind: info.kind,
-        onClick: options.onSelect,
+        onClick: this.onSelect,
       });
     }
 
@@ -160,6 +163,18 @@ export class Scene {
       } else {
         this.scene.add(orbit.line);
       }
+    }
+  }
+
+  /** Re-label every body, for when the interface language changes. */
+  refreshLabels(): void {
+    for (const info of ALL_BODIES) {
+      this.labels.ensure({
+        id: info.id,
+        text: tr(info.name),
+        kind: info.kind,
+        onClick: this.onSelect,
+      });
     }
   }
 
@@ -586,7 +601,7 @@ export class Scene {
         const view = pending.shift() as BodyView;
         view.generateSurfaceNow();
         done += 1;
-        onProgress?.(done, total, view.info.name);
+        onProgress?.(done, total, tr(view.info.name));
       }
       if (pending.length > 0) scheduleFrame(step);
     };

@@ -1,23 +1,24 @@
 /** The simulation clock: play/pause, speed, and jumping to an instant. */
 import { dateToJD, jdToDate } from '../astro/time';
+import { type Localised, t, tr } from '../i18n';
 
 export interface SpeedPreset {
-  label: string;
+  label: Localised<string>;
   /** simulated seconds per real second */
   secondsPerSecond: number;
 }
 
 export const SPEED_PRESETS: SpeedPreset[] = [
-  { label: '实时', secondsPerSecond: 1 },
-  { label: '1 分钟/秒', secondsPerSecond: 60 },
-  { label: '10 分钟/秒', secondsPerSecond: 600 },
-  { label: '1 小时/秒', secondsPerSecond: 3600 },
-  { label: '6 小时/秒', secondsPerSecond: 21600 },
-  { label: '1 天/秒', secondsPerSecond: 86400 },
-  { label: '1 周/秒', secondsPerSecond: 604800 },
-  { label: '1 月/秒', secondsPerSecond: 2592000 },
-  { label: '1 年/秒', secondsPerSecond: 31557600 },
-  { label: '10 年/秒', secondsPerSecond: 315576000 },
+  { label: { zh: '实时', en: 'Real time' }, secondsPerSecond: 1 },
+  { label: { zh: '1 分钟/秒', en: '1 min/s' }, secondsPerSecond: 60 },
+  { label: { zh: '10 分钟/秒', en: '10 min/s' }, secondsPerSecond: 600 },
+  { label: { zh: '1 小时/秒', en: '1 hour/s' }, secondsPerSecond: 3600 },
+  { label: { zh: '6 小时/秒', en: '6 hours/s' }, secondsPerSecond: 21600 },
+  { label: { zh: '1 天/秒', en: '1 day/s' }, secondsPerSecond: 86400 },
+  { label: { zh: '1 周/秒', en: '1 week/s' }, secondsPerSecond: 604800 },
+  { label: { zh: '1 月/秒', en: '1 month/s' }, secondsPerSecond: 2592000 },
+  { label: { zh: '1 年/秒', en: '1 year/s' }, secondsPerSecond: 31557600 },
+  { label: { zh: '10 年/秒', en: '10 years/s' }, secondsPerSecond: 315576000 },
 ];
 
 export class TimeController {
@@ -38,8 +39,8 @@ export class TimeController {
   }
 
   get speedLabel(): string {
-    const label = SPEED_PRESETS[this.speedIndex].label;
-    return this.direction < 0 ? `倒放 ${label}` : label;
+    const label = tr(SPEED_PRESETS[this.speedIndex].label);
+    return this.direction < 0 ? t('time.reversed', { label }) : label;
   }
 
   get reversed(): boolean {

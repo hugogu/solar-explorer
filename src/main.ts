@@ -4,6 +4,7 @@ import { Simulation } from './app/Simulation';
 import { Scene } from './render/Scene';
 import { Controls } from './render/Controls';
 import { Ui } from './ui/Ui';
+import { language, onLanguageChange, t, tr } from './i18n';
 import { loadPhotoMaps } from './render/textures/photoMaps';
 import { PLANET_IDS } from './astro/planets';
 import { nextFrame } from './app/schedule';
@@ -31,7 +32,11 @@ async function boot(): Promise<void> {
     return nextFrame();
   };
 
-  await progress(0.08, '读取贴图资源…');
+  applyDocumentLanguage();
+  (document.getElementById('loading-title') as HTMLElement).textContent = t('loading.title');
+  (document.getElementById('loading-sub') as HTMLElement).textContent = t('loading.sub');
+
+  await progress(0.08, t('loading.textures'));
   const photoMaps = await loadPhotoMaps();
 
   const state = new AppState();
@@ -43,7 +48,7 @@ async function boot(): Promise<void> {
   const simulation = new Simulation(state.time.jd);
   const eclipseWatcher = new EclipseWatcher();
 
-  await progress(0.3, '构建场景…');
+  await progress(0.3, t('loading.scene'));
   const scene = new Scene(
     {
       canvas,
@@ -137,7 +142,7 @@ async function boot(): Promise<void> {
   const showLocation = (bodyId: string) => {
     const point = state.surfacePointFor(bodyId);
     const name = bodyId === 'earth'
-      ? state.observer.name
+      ? tr(state.observer.name)
       : `${point.latitude.toFixed(1)}°, ${point.longitude.toFixed(1)}°`;
     scene.locationMarker.set(bodyId, point.latitude, point.longitude, name);
     if (state.settings.surface) return;
@@ -163,11 +168,22 @@ async function boot(): Promise<void> {
     state.emit('settings');
   };
 
-  const ui = new Ui(uiContainer, state, () => simulation, {
+  const uiCallbacks = {
     onSurfaceView: enterSurface,
     onExitSurface: exitSurface,
     onWatchEclipse: watchEclipse,
     onShowLocation: showLocation,
+  };
+  let ui = new Ui(uiContainer, state, () => simulation, uiCallbacks);
+
+  // Every panel builds its labels once, in its constructor, so the cheapest
+  // correct way to change language is to throw the interface away and build it
+  // again. The simulation, the camera and the clock are untouched.
+  onLanguageChange(() => {
+    applyDocumentLanguage();
+    ui.dispose();
+    ui = new Ui(uiContainer, state, () => simulation, uiCallbacks);
+    scene.refreshLabels();
   });
 
   state.on('observer', () => {
@@ -246,7 +262,7 @@ async function boot(): Promise<void> {
   scene.rig.polar = 0.85;
   scene.rig.snap();
 
-  await progress(1, '就绪');
+  await progress(1, t('loading.ready'));
   loading.classList.add('is-done');
   scene.generateSurfaces((done, total, name) => {
     stepText.textContent = `${name} (${done}/${total})`;
@@ -284,6 +300,17 @@ async function boot(): Promise<void> {
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
+}
+
+/**
+ * Keep the document itself in step: the tab title, the meta description and
+ * `lang`, which is what a screen reader and the browser's own translation
+ * prompt go by.
+ */
+function applyDocumentLanguage(): void {
+  document.documentElement.lang = language() === 'zh' ? 'zh-CN' : 'en';
+  document.title = t('app.title');
+  document.querySelector('meta[name="description"]')?.setAttribute('content', t('app.description'));
 }
 
 /**

@@ -2,21 +2,23 @@
 import { ALL_BODIES, BodyInfo, BodyKind, moonsOf } from '../../data';
 import { AppState } from '../../app/AppState';
 import { ICONS, clear, el, icon } from '../dom';
+import { type StringKey, t, tr } from '../../i18n';
+import { otherName, searchableText } from '../names';
 
 interface Group {
-  title: string;
+  titleKey: StringKey;
   kind: BodyKind;
   /** moons are listed nested under their planet rather than as rows here */
   nested?: boolean;
-  hint?: string;
+  hintKey?: StringKey;
 }
 
 const GROUPS: Group[] = [
-  { title: '恒星', kind: 'star' },
-  { title: '行星', kind: 'planet' },
-  { title: '卫星', kind: 'moon', nested: true, hint: '在行星下展开' },
-  { title: '矮行星', kind: 'dwarf' },
-  { title: '彗星', kind: 'comet' },
+  { titleKey: 'group.star', kind: 'star' },
+  { titleKey: 'group.planet', kind: 'planet' },
+  { titleKey: 'group.moon', kind: 'moon', nested: true, hintKey: 'group.moonHint' },
+  { titleKey: 'group.dwarf', kind: 'dwarf' },
+  { titleKey: 'group.comet', kind: 'comet' },
 ];
 
 export class BodyList {
@@ -24,14 +26,15 @@ export class BodyList {
   private readonly listEl: HTMLElement;
   private query = '';
   private readonly expanded = new Set<string>();
+  private readonly off: Array<() => void> = [];
 
   constructor(private readonly state: AppState) {
     this.listEl = el('div', { class: 'body-list' });
     const search = el('input', {
       type: 'search',
       class: 'field search-field',
-      placeholder: '搜索天体…',
-      'aria-label': '搜索天体',
+      placeholder: t('list.search'),
+      'aria-label': t('list.search'),
       oninput: (event) => {
         this.query = (event.target as HTMLInputElement).value.trim().toLowerCase();
         this.render();
@@ -44,8 +47,13 @@ export class BodyList {
       this.listEl,
     );
     this.render();
-    state.on('selection', () => this.markSelection());
-    state.on('settings', () => this.render());
+    this.off.push(state.on('selection', () => this.markSelection()));
+    this.off.push(state.on('settings', () => this.render()));
+  }
+
+  dispose(): void {
+    for (const off of this.off) off();
+    this.off.length = 0;
   }
 
   private render(): void {
@@ -53,7 +61,7 @@ export class BodyList {
     if (this.query) {
       const matches = ALL_BODIES.filter((b) => this.matchesQuery(b));
       if (matches.length === 0) {
-        this.listEl.appendChild(el('div', { class: 'list-empty' }, '没有匹配的天体'));
+        this.listEl.appendChild(el('div', { class: 'list-empty' }, t('list.empty')));
       }
       for (const body of matches) this.listEl.appendChild(this.row(body, false));
       this.markSelection();
@@ -78,25 +86,24 @@ export class BodyList {
 
   /** Group heading with a switch that hides the whole class from the scene. */
   private groupHeader(group: Group, count: number): HTMLElement {
-    const input = el('input', { type: 'checkbox', 'aria-label': `显示${group.title}` });
+    const title = t(group.titleKey);
+    const input = el('input', { type: 'checkbox', 'aria-label': t('list.showKind', { kind: title }) });
     input.checked = this.state.settings.visibleKinds[group.kind];
     input.addEventListener('change', () => {
       this.state.setKindVisible(group.kind, input.checked);
       this.render();
     });
     return el('div', { class: 'list-group' },
-      el('span', { class: 'list-group-title' }, group.title),
-      el('span', { class: 'list-group-count' }, group.hint ?? String(count)),
-      el('label', { class: 'group-switch', title: `显示或隐藏${group.title}` }, input, el('span', {})),
+      el('span', { class: 'list-group-title' }, title),
+      el('span', { class: 'list-group-count' }, group.hintKey ? t(group.hintKey) : String(count)),
+      el('label', { class: 'group-switch', title: t('list.toggleKind', { kind: title }) },
+        input, el('span', {})),
     );
   }
 
+  /** Matches either language, so an English query still finds a Chinese name. */
   private matchesQuery(body: BodyInfo): boolean {
-    return (
-      body.name.toLowerCase().includes(this.query) ||
-      body.nameEn.toLowerCase().includes(this.query) ||
-      body.tagline.toLowerCase().includes(this.query)
-    );
+    return searchableText(body).includes(this.query);
   }
 
   private row(body: BodyInfo, expandable: boolean, isChild = false): HTMLElement {
@@ -107,8 +114,8 @@ export class BodyList {
     if (expandable) {
       const toggle = el('button', {
         class: 'row-toggle' + (this.expanded.has(body.id) ? ' is-open' : ''),
-        title: '展开卫星',
-        'aria-label': `展开 ${body.name} 的卫星`,
+        title: t('list.expandMoons'),
+        'aria-label': t('list.expandMoonsOf', { name: tr(body.name) }),
         onclick: (event: Event) => {
           event.stopPropagation();
           if (this.expanded.has(body.id)) this.expanded.delete(body.id);
@@ -128,8 +135,8 @@ export class BodyList {
         onclick: () => this.state.select(body.id),
       },
       swatch,
-      el('span', { class: 'row-name' }, body.name),
-      el('span', { class: 'row-en' }, body.nameEn),
+      el('span', { class: 'row-name' }, tr(body.name)),
+      el('span', { class: 'row-en' }, otherName(body)),
       ...children,
     );
     return row;
