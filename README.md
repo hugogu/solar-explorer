@@ -89,6 +89,15 @@ you just read off the almanac actually happen.
 Mouse and keyboard on the desktop, one-finger rotate and two-finger pinch on a phone,
 with the panels folding into a bottom sheet below 900 px.
 
+### In English or Chinese
+
+Every label, every reading and the whole 54-body catalogue — taglines, descriptions
+and facts — exist in both languages. The switch in the top bar changes them live,
+without losing the clock, the camera or the selected body, and remembers the choice.
+The first visit follows `?lang=en`, `?lang=zh` or the browser's own preference.
+Numbers follow the language too: Chinese groups in myriads (9.18 亿公里) where English
+groups in thousands (918 million km).
+
 ## Quick start
 
 ```bash
@@ -184,6 +193,7 @@ src/
   astro/    pure computation: time scales, frames, orbits, Sun, Moon, planets,
             rotation, rise/set, eclipses, eclipse tracks, galactic coordinates
   data/     body catalogue: physical and orbital parameters, popular-science content
+  i18n/     language selection and the interface string table
   app/      simulation state, clock, application state, eclipse watcher
   render/   three.js scene: bodies, orbits, sky, belts, camera, procedural textures
   ui/       panels, built from plain DOM with no framework
@@ -196,6 +206,12 @@ Two rules hold the design together:
 - `src/astro/` imports neither three.js nor the DOM, so it runs and is tested in Node.
 - The render layer does no astronomy. It consumes positions and orientations from
   `Simulation` and draws them.
+
+Translations are stored in two ways on purpose. Interface chrome lives in a key/value
+table (`src/i18n/strings.ts`), because the same phrase is used from several panels and
+TypeScript can then prove no key is missing. Catalogue prose is written inline in the
+data files as `Localised<T>` — `{ zh, en }` side by side — so a body's two versions are
+reviewed together and drift is obvious.
 
 One scene unit is 1000 km. The ephemeris works in the ecliptic frame with +Z towards the
 ecliptic north pole; three.js is Y-up, so `(x, y, z)` becomes `(x, z, -y)`.
