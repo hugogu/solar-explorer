@@ -50,6 +50,7 @@ export class SettingsPanel {
       { labelKey: 'settings.belts', get: () => state.settings.showBelts, set: (v) => { state.settings.showBelts = v; } },
       { labelKey: 'settings.oort', hintKey: 'settings.oortHint', get: () => state.settings.showOort, set: (v) => { state.settings.showOort = v; } },
       { labelKey: 'settings.eclipseTrack', hintKey: 'settings.eclipseTrackHint', get: () => state.settings.showEclipseTrack, set: (v) => { state.settings.showEclipseTrack = v; } },
+      { labelKey: 'settings.solarActivity', hintKey: 'settings.solarActivityHint', get: () => state.settings.showSolarActivity, set: (v) => { state.settings.showSolarActivity = v; } },
       { labelKey: 'settings.stars', get: () => state.settings.showStars, set: (v) => { state.settings.showStars = v; } },
       { labelKey: 'settings.milkyWay', get: () => state.settings.showMilkyWay, set: (v) => { state.settings.showMilkyWay = v; } },
     ];

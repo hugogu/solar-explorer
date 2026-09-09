@@ -10,6 +10,7 @@ import {
 import { joinList, t, tr } from '../../i18n';
 import { otherName } from '../names';
 import { moonPhase } from '../../astro/moon';
+import { solarCycle, sunspots } from '../../astro/solaractivity';
 import { sunPosition } from '../../astro/sun';
 import { jdToTT } from '../../astro/time';
 import { vecLength, vecSub } from '../../astro/planets';
@@ -253,7 +254,17 @@ export class InfoPanel {
         formatKm(state.parentDistance * 149597870.7),
       ]);
     }
-    if (id !== 'sun') cells.push([t('live.orbitSpeed'), `${state.speedKms.toFixed(2)} km/s`]);
+    if (id === 'sun') {
+      const cycle = solarCycle(jdtt);
+      cells.push([t('live.solarCycle'), t('live.solarCycleValue', {
+        number: cycle.number, years: (cycle.daysIntoCycle / 365.25).toFixed(1),
+      })]);
+      cells.push([t('live.sunspotNumber'), t('live.sunspotNumberValue', {
+        number: Math.round(cycle.sunspotNumber), groups: sunspots(jdtt).length,
+      })]);
+    } else {
+      cells.push([t('live.orbitSpeed'), `${state.speedKms.toFixed(2)} km/s`]);
+    }
     if (id === 'moon') {
       const sun = sunPosition(jdtt);
       const phase = moonPhase(jdtt, sun.lon, sun.dist);

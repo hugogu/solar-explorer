@@ -16,6 +16,7 @@ import {
 import { Sky } from './Sky';
 import { LocationMarker } from './LocationMarker';
 import { EclipseTrack } from './EclipseTrack';
+import { SolarActivity } from './SolarActivity';
 import type { EclipseOverlay } from '../app/EclipseWatcher';
 import { AtmosphereSky, SKY_PROFILES } from './AtmosphereSky';
 import { AU_UNITS, ScaleSettings, scaleHeliocentric } from './frame';
@@ -45,6 +46,8 @@ export interface ViewSettings {
   showOort: boolean;
   /** draw the umbra's track across the ground during a solar eclipse */
   showEclipseTrack: boolean;
+  /** the Sun's corona, glare, prominences and sunspots */
+  showSolarActivity: boolean;
   showStars: boolean;
   showMilkyWay: boolean;
   /** body the camera is locked to, or null for free flight around the Sun */
@@ -79,6 +82,7 @@ export class Scene {
   private readonly atmosphereSky = new AtmosphereSky();
   readonly locationMarker = new LocationMarker();
   private readonly eclipseTrack = new EclipseTrack();
+  private readonly solarActivity = new SolarActivity();
   private eclipseOverlay: EclipseOverlay | null = null;
   /**
    * While set, the camera keeps the marked place facing the viewer as the body
@@ -125,6 +129,7 @@ export class Scene {
     this.scene.add(this.atmosphereSky.mesh);
     this.scene.add(this.locationMarker.group);
     this.scene.add(this.eclipseTrack.group);
+    this.scene.add(this.solarActivity.group);
 
     // The Sun lights everything; falloff is compressed in the material tint
     // rather than the light itself, so distant planets stay legible.
@@ -234,6 +239,7 @@ export class Scene {
       );
     }
 
+    this.updateSolarActivity(simulation, settings, scale);
     this.updateEclipseShadows(simulation);
     this.updateLocationMarker(simulation, settings);
     this.updateEclipseTrack(simulation, settings);
@@ -293,6 +299,25 @@ export class Scene {
         view.setEclipseCaster(sunRel, sunRadius, null, 0);
       }
     }
+  }
+
+  /** Corona, glare, prominences and spots, all driven by the sunspot cycle. */
+  private updateSolarActivity(
+    simulation: Simulation, settings: ViewSettings, scale: ScaleSettings,
+  ): void {
+    const state = simulation.get('sun');
+    const view = this.views.get('sun');
+    const position = this.scaledPositions.get('sun');
+    if (!state || !view || !position) return;
+    this.solarActivity.update({
+      jd: jdToTT(simulation.jd),
+      state,
+      view,
+      position,
+      radius: view.baseRadius * scale.bodyScale,
+      camera: this.rig.camera,
+      enabled: settings.showSolarActivity && settings.visibleKinds.star !== false,
+    });
   }
 
   /** Put the marked place on the surface of its body, at a constant screen size. */

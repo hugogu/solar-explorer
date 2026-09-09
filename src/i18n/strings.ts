@@ -135,6 +135,10 @@ const zh = {
   'live.moonAge': '月龄',
   'live.moonAgeValue': '{days} 天',
   'live.meridian': '自转角 W',
+  'live.solarCycle': '太阳活动周',
+  'live.solarCycleValue': '第 {number} 周 · 第 {years} 年',
+  'live.sunspotNumber': '太阳黑子数',
+  'live.sunspotNumberValue': '{number}（平滑值）· {groups} 个活动区',
 
   'phase.new': '新月',
   'phase.waxingCrescent': '娥眉月',
@@ -265,6 +269,8 @@ const zh = {
   'settings.oortHint': '约 2000 AU',
   'settings.eclipseTrack': '日食阴影轨迹',
   'settings.eclipseTrackHint': '食带与本影',
+  'settings.solarActivity': '太阳活动',
+  'settings.solarActivityHint': '日冕、光芒、日珥与黑子',
   'settings.stars': '恒星',
   'settings.milkyWay': '银河',
 
@@ -454,6 +460,10 @@ const en: Record<StringKey, string> = {
   'live.moonAge': 'Moon age',
   'live.moonAgeValue': '{days} days',
   'live.meridian': 'Rotation angle W',
+  'live.solarCycle': 'Solar cycle',
+  'live.solarCycleValue': 'Cycle {number} · year {years}',
+  'live.sunspotNumber': 'Sunspot number',
+  'live.sunspotNumberValue': '{number} smoothed · {groups} active groups',
 
   'phase.new': 'New moon',
   'phase.waxingCrescent': 'Waxing crescent',
@@ -584,6 +594,8 @@ const en: Record<StringKey, string> = {
   'settings.oortHint': 'about 2000 AU',
   'settings.eclipseTrack': 'Eclipse shadow track',
   'settings.eclipseTrackHint': 'path and umbra',
+  'settings.solarActivity': 'Solar activity',
+  'settings.solarActivityHint': 'corona, glare, prominences and spots',
   'settings.stars': 'Stars',
   'settings.milkyWay': 'Milky Way',
 

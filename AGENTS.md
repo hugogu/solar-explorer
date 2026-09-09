@@ -112,6 +112,20 @@
 - **占位符要两边一致**。`{name}` 只在一种语言里出现，就意味着另一种语言少了个值或者
   多了段字面量。`tests/i18n.test.ts` 会逐 key 比对占位符集合。
 
+## 渲染陷阱
+
+- **`onBeforeCompile` 必须配 `customProgramCacheKey`**。three.js 按材质*参数*缓存
+  program，不看 hook 注入的源码。太阳的 MeshBasicMaterial 和土星环、日珥用的
+  MeshBasicMaterial 参数一样，于是太阳直接复用了环的 program，`onBeforeCompile`
+  根本没被调用，着色器代码看起来完全正确却毫无效果。排查方法：
+  `renderer.info.programs.filter(p => p.cacheKey.includes('<你的key>'))`。
+- **MeshBasicMaterial 的顶点着色器没有法线**（只有 USE_ENVMAP / USE_SKINNING 时才
+  `#include <beginnormal_vertex>`）。单位球上 `position` 就是法线，直接用它即可；
+  视线方向在 `#include <project_vertex>` 之后可以用 `-mvPosition.xyz`。
+- **加法混合的图层永远不会让画面变暗**。如果隐藏某个加法图层后"暗斑消失了"，
+  那个暗斑其实一直在下面，只是周围被提亮后对比度变了。用整帧像素差
+  （`negCount` / `posCount`）来确认，别靠眼睛。
+
 ## 精度约定
 
 改动星历相关代码后必须跑 `npm test`。测试对照的是公布值（Meeus 例题、二分二至时刻、

@@ -8,6 +8,11 @@ import type { BodyState } from '../app/Simulation';
 import { KM_PER_UNIT, ScaleSettings } from './frame';
 import { generateRingTexture, generateSurface, radialSprite } from './textures/generators';
 import { orientationMatrix } from './orientation';
+import type { Sunspot } from '../astro/solaractivity';
+
+const DEG = Math.PI / 180;
+/** Spot groups the photosphere shader carries; the model offers more than this. */
+export const MAX_SUNSPOTS = 16;
 
 export interface BodyViewOptions {
   /** texture width; height is half of it */
@@ -60,6 +65,16 @@ export class BodyView {
     uEclipseStrength: { value: 0 },
   };
   private oblateness = 1;
+  /**
+   * Photosphere shading for the Sun: limb darkening, and up to MAX_SUNSPOTS
+   * groups given as unit directions in the body frame with their angular radii.
+   */
+  private readonly sunUniforms = {
+    uSpots: { value: Array.from({ length: MAX_SUNSPOTS }, () => new THREE.Vector4(0, 1, 0, 0)) },
+    uSpotFade: { value: new Float32Array(MAX_SUNSPOTS) },
+    uSpotCount: { value: 0 },
+    uLimbDarkening: { value: 0 },
+  };
 
   constructor(info: BodyInfo, options: BodyViewOptions) {
     this.info = info;
@@ -105,12 +120,108 @@ export class BodyView {
     this.mesh.userData.bodyId = info.id;
     this.spin.add(this.mesh);
 
+    if (info.emissive) this.applyPhotosphereShading();
     this.addMarker();
     if (info.atmosphereColor) this.addAtmosphere(info.atmosphereColor);
     if (photo?.cloudMap) this.addClouds(photo.cloudMap);
     if (info.rings) this.addRings(photo?.ringMap);
-    if (info.emissive) this.addCorona();
+    if (info.emissive) this.addGlow();
     if (info.kind === 'comet') this.addComa();
+  }
+
+  /**
+   * Limb darkening and sunspots for a self-luminous surface.
+   *
+   * A star is not a flat disc: the line of sight at the edge only reaches the
+   * cooler upper photosphere, so the limb is markedly dimmer than the centre.
+   * Spots ride on top of that as an umbra at roughly a sixth of the surrounding
+   * brightness inside a penumbra at about two thirds.
+   */
+  private applyPhotosphereShading(): void {
+    const material = this.material as THREE.MeshBasicMaterial;
+    // Programs are cached by material parameters, not by the source an
+    // onBeforeCompile hook injects, so without a key of its own this material
+    // silently reuses the program compiled for the rings or the prominences.
+    material.customProgramCacheKey = () => 'photosphere';
+    material.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, this.sunUniforms);
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+           varying vec3 vSunNormal;
+           varying vec3 vSunNormalView;
+           varying vec3 vSunViewDir;`,
+        )
+        // The mesh is a unit sphere, so its position is also its normal, and a
+        // basic material does not compute normals unless something asks for them.
+        .replace(
+          '#include <project_vertex>',
+          `#include <project_vertex>
+           vSunNormal = normalize(position);
+           vSunNormalView = normalize(normalMatrix * position);
+           vSunViewDir = normalize(-mvPosition.xyz);`,
+        );
+
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+           varying vec3 vSunNormal;
+           varying vec3 vSunNormalView;
+           varying vec3 vSunViewDir;
+           uniform vec4 uSpots[${MAX_SUNSPOTS}];
+           uniform float uSpotFade[${MAX_SUNSPOTS}];
+           uniform int uSpotCount;
+           uniform float uLimbDarkening;`,
+        )
+        .replace(
+          '#include <map_fragment>',
+          `#include <map_fragment>
+           float mu = max(dot(vSunNormalView, vSunViewDir), 0.0);
+           float photosphere = 1.0 - uLimbDarkening * (1.0 - mu);
+           for (int i = 0; i < ${MAX_SUNSPOTS}; i++) {
+             if (i >= uSpotCount) break;
+             vec4 spot = uSpots[i];
+             float ang = acos(clamp(dot(vSunNormal, spot.xyz), -1.0, 1.0));
+             // A group's umbra fills roughly the inner half of its penumbra,
+             // and runs at about a fifth of the surrounding brightness.
+             float penumbra = 1.0 - smoothstep(spot.w * 0.82, spot.w, ang);
+             float umbra = 1.0 - smoothstep(spot.w * 0.36, spot.w * 0.52, ang);
+             float shade = mix(1.0, 0.55, penumbra * uSpotFade[i]);
+             shade = mix(shade, 0.10, umbra * uSpotFade[i]);
+             photosphere = min(photosphere, shade * (1.0 - uLimbDarkening * (1.0 - mu)));
+           }
+           diffuseColor.rgb *= photosphere;`,
+        );
+    };
+    material.needsUpdate = true;
+  }
+
+  /**
+   * Hand the current spot groups to the shader.
+   * @param spots heliographic positions in the body-fixed frame
+   * @param limbDarkening 0 for a flat disc, about 0.6 for the Sun in visible light
+   */
+  setSunspots(spots: Sunspot[], limbDarkening: number): void {
+    const u = this.sunUniforms;
+    const count = Math.min(spots.length, MAX_SUNSPOTS);
+    for (let i = 0; i < count; i++) {
+      const { latitude, longitude, radius, strength } = spots[i];
+      const lat = latitude * DEG;
+      const lon = longitude * DEG;
+      // Body frame to mesh object space: the sphere's pole is +Y and longitude
+      // zero is +X, so (x, y, z) = (cos lat cos lon, sin lat, -cos lat sin lon).
+      (u.uSpots.value[i] as THREE.Vector4).set(
+        Math.cos(lat) * Math.cos(lon),
+        Math.sin(lat),
+        -Math.cos(lat) * Math.sin(lon),
+        Math.max(0.002, radius * DEG),
+      );
+      (u.uSpotFade.value as Float32Array)[i] = strength;
+    }
+    u.uSpotCount.value = count;
+    u.uLimbDarkening.value = limbDarkening;
   }
 
   /**
@@ -373,7 +484,7 @@ export class BodyView {
 
   private ringsHolder?: THREE.Group;
 
-  private addCorona(): void {
+  private addGlow(): void {
     const sprite = new THREE.Sprite(
       new THREE.SpriteMaterial({
         map: radialSprite('#ffe6a8', 512, 3.2),
